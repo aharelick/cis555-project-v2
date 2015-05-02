@@ -16,9 +16,8 @@ public class Site {
 		
 	}
 	
-	public Site(String url, String contentType, long nextRequestTime) {
+	public Site(String url, long nextRequestTime) {
 		this.url = url;
-		this.contentType = contentType;
 		this.nextRequestTime = nextRequestTime;
 	}
 	
@@ -26,6 +25,9 @@ public class Site {
 		return url;
 	}
 	
+	public void setContentType(String contentType) {
+		this.contentType = contentType;
+	}
 	public String getContentType() {
 		return contentType;
 	}

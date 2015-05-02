@@ -107,6 +107,10 @@ public class DBWrapper {
 		//store.sync();
 	}
 	
+	public static void close() {
+		store.close();
+		myEnv.close();
+	}
 }
 	
 	
