@@ -10,6 +10,8 @@ import java.util.HashMap;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import edu.upenn.cis555.crawler.storage.DBWrapper;
+
 public class Crawler {
 	/**
 	 * The main method initializes and runs the crawler. All threads used in
