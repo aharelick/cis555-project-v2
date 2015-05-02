@@ -4,12 +4,15 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.math.BigInteger;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
 import java.net.URLConnection;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -271,9 +274,9 @@ public class Crawler {
 			}
 			//call client to send along lists of URLs for each node
 			
-			//write the file to the DB
-			
-			
+			//write the body and list of URLs to the DB
+			url.setChildren(children);
+			url.setBody(body);
 			//add this URL to the list of crawled URLs
 			DBWrapper.putCrawledSite(url);
 			
@@ -344,6 +347,32 @@ public class Crawler {
 		}
 		body = body.trim();
 		return body;
+	}
+	
+	/**
+	 * Method to hash the given host name and assign it a number, 0-9, of which
+	 * node it should be sent to, based on the range of the hash.
+	 */
+	private static int hashRange(String host) {
+		MessageDigest digest = null;
+		try {
+			digest = MessageDigest.getInstance("SHA-1");
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		}
+        digest.reset();
+        digest.update(host.getBytes());
+        BigInteger bigDigest = new BigInteger(1, digest.digest());
+        BigInteger blank160 = BigInteger.ZERO.setBit(160);
+		BigInteger max = blank160.subtract(BigInteger.ONE);
+        BigInteger range = (max.add(BigInteger.ONE)).divide(BigInteger.valueOf(10));
+        int i;
+        for (i = 1; i <= 10; i++) {
+        	if ((range.multiply(BigInteger.valueOf(i)).compareTo(bigDigest)) == 1) {
+        		break;
+        	}
+        }
+        return i - 1;
 	}
 	
 	//========================PRIVATE REQUEST HELPERS==========================
