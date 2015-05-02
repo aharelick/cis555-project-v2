@@ -10,6 +10,8 @@ import java.util.HashMap;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import edu.upenn.cis555.crawler.storage.DBWrapper;
+
 public class Crawler {
 	private static long maxFileSize;
 	private static String S3logDirectory;
