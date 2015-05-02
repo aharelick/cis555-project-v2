@@ -18,6 +18,7 @@ public class DBWrapper {
 	
 	private static PrimaryIndex<String, Site> headQueue;
 	private static PrimaryIndex<String, Site> getQueue;
+	private static PrimaryIndex<String, HostInfo> hostInfo;
 	
 	/**
 	 * Create the DB if it doesn't exist and open it if it does exist.
@@ -45,11 +46,17 @@ public class DBWrapper {
         store = new EntityStore(myEnv, "EntityStore", storeConfig);
         headQueue = store.getPrimaryIndex(String.class, Site.class);
         getQueue = store.getPrimaryIndex(String.class, Site.class);
+        hostInfo = store.getPrimaryIndex(String.class, HostInfo.class);
         DatabaseShutdownHook hook = new DatabaseShutdownHook(myEnv, store);
         Runtime.getRuntime().addShutdownHook(hook);
         System.out.println("Database Started");
 	}
 	
+	/**
+	 * Acquires a write lock then does gets a cursor and iterates
+	 * over the index until it gets and deletes as many entities as requested.
+	 * @param count
+	 */
 	public static LinkedList<Site> batchPullFromHead(int count) {
 		EntityCursor<Site> cursor = headQueue.entities();
 		LinkedList<Site> sites = new LinkedList<Site>();
@@ -77,6 +84,11 @@ public class DBWrapper {
 		headQueue.delete(url);
 	}
 	
+	/**
+	 * Acquires a write lock then does gets a cursor and iterates
+	 * over the index until it gets and deletes as many entities as requested.
+	 * @param count
+	 */
 	public static LinkedList<Site> batchPullFromGet(int count) {
 		EntityCursor<Site> cursor = getQueue.entities();
 		LinkedList<Site> sites = new LinkedList<Site>();
@@ -101,6 +113,11 @@ public class DBWrapper {
 	
 	public static void deleteFromGetQueue(String url) {
 		getQueue.delete(url);
+	}
+	
+	public static HostInfo getHostInfo(String host) {
+		hostInfo.getDatabase();
+		return null;
 	}
 
 	public static void sync() {
