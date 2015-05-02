@@ -1,20 +1,30 @@
 package edu.upenn.cis555.crawler;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
+import java.net.URLConnection;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
 import javax.net.ssl.HttpsURLConnection;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+
 import edu.upenn.cis555.crawler.storage.DBWrapper;
 import edu.upenn.cis555.crawler.storage.S3FileWriter;
 import edu.upenn.cis555.crawler.storage.Site;
+import edu.upenn.cis555.legacy.URLWrapper;
 
 public class Crawler {
 	private static int portNumber = 5555;
@@ -217,24 +227,52 @@ public class Crawler {
 	static void processHead(Site url) {
 		//need to check if the url's host already has a robots.txt in the DB
 		
+		//need to set the contentType of the URL!!!
 	}
 	
 	static void processGet(Site url) {
-		//first send a GET request to the given URL
+		//Send a GET request to the given URL
+		String body = null;
+		String protocol = new URL(url.getSite()).getProtocol();
 		try {
-			if (url.getSite().startsWith("https")) {
+			if (protocol.equals("https")) {
 				HttpsURLConnection res = https(new URL(url.getSite()), "GET");
-				
-			} else if (url.getSite().startsWith("http")) {
+				System.out.println("Downloading: " + url.getSite());
+				body = inputStreamToString(res);
+			} else if (protocol.equals("http")) {
 				HttpURLConnection res = http(new URL(url.getSite()), "GET");
+				System.out.println("Downloading: " + url.getSite());
+				body = inputStreamToString(res);
 			}
 		} catch (MalformedURLException e) {
 			return;
 		}
-		//next read the response and parse the document for links
+		//Read the response and parse the document for links
+		if (url.getContentType() == null) {
+			return;
+		} else if (url.getContentType().equals("text/html")) {
+			ArrayList<String> nodes = new ArrayList<String>();
+			Document doc = Jsoup.parse(body);
+			for (Element e : doc.select("a[href]")) {
+				URLWrapper child = new URLWrapper(e.attr("href"),
+					protocol, new URL(url.getSite()).getHost(), 
+					new URL(url.getSite()).getPath());
+				//if we extract a valid URL, check if it has been crawled before
+				if (child.isGoodURL()) {
+					String urlString = child.getURL().toString();
+					System.out.println("DELETE THIS later " + urlString);
+				}
+				//hash the URL, send to the appropriate node	
+			}
+			//write the file to the DB
+			
+			return;
+		} else {
+			return;
+		}
 	}
 	
-	//===========================HTTP CLIENT===================================
+	//=======================CONVENIENCE METHODS===============================
 	/**
 	 * Method to make http requests.
 	 * @param url - the url to make the request to 
@@ -272,6 +310,29 @@ public class Crawler {
 			e.printStackTrace();
 			return null;
 		}
+	}
+		
+	/**
+	 * Convenience method to take a connection and return as String. 
+	 */
+	private static String inputStreamToString(URLConnection connect) {
+		String body = "";
+		BufferedReader br = null;
+		try {
+			br = new BufferedReader(new InputStreamReader(connect.getInputStream()));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		String line;
+		try {
+			while ((line = br.readLine()) != null) {
+				body += line + "\n";
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		body = body.trim();
+		return body;
 	}
 	
 	//========================PRIVATE REQUEST HELPERS==========================
