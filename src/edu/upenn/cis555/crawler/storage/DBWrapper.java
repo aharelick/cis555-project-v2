@@ -1,14 +1,11 @@
 package edu.upenn.cis555.crawler.storage;
 
 import java.io.File;
+import java.io.UnsupportedEncodingException;
 import java.util.LinkedList;
 
 import com.sleepycat.bind.EntityBinding;
-import com.sleepycat.bind.EntryBinding;
-import com.sleepycat.bind.tuple.TupleBinding;
-import com.sleepycat.bind.tuple.TupleInput;
 import com.sleepycat.je.Cursor;
-import com.sleepycat.je.CursorConfig;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.Environment;
@@ -128,17 +125,30 @@ public class DBWrapper {
 	
 	public static HostInfo getHostInfo(String host) {
 		Database db = hostInfo.getDatabase();
+    	EntityBinding<HostInfo> binding = hostInfo.getEntityBinding();
 		Cursor cursor = db.openCursor(null, null);
-		DatabaseEntry key = new DatabaseEntry(host.getBytes("UTF-8"));
+		DatabaseEntry key = null;
+		try {
+			key = new DatabaseEntry(host.getBytes("UTF-8"));
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+			return null;
+		}
 	    DatabaseEntry data = new DatabaseEntry();
 	    if (cursor.getSearchKey(key, data, LockMode.RMW) == OperationStatus.SUCCESS) {
-	    	EntityBinding<HostInfo> binding = hostInfo.getEntityBinding();
-	    	TupleBinding<HostInfo> tup = new TupleBinding<HostInfo>();
-	    	tup.entryToObject(data);
-	        return data.getData();
+	    	HostInfo info = binding.entryToObject(key, data);
+	    	return info;
+	    } else {
+	    	return null;
 	    }
-	      return null;
-		return null;
+	}
+	
+	public static void putHostInfo(HostInfo info) {
+		hostInfo.put(info);
+	}
+	
+	public static void deleteHostInfo(String host) {
+		hostInfo.delete(host);
 	}
 	
 	public static Site getCrawledSite(String key) {
