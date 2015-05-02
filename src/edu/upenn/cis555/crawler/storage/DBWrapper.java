@@ -5,6 +5,8 @@ import java.util.LinkedList;
 
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
+import com.sleepycat.je.LockMode;
+import com.sleepycat.persist.EntityCursor;
 import com.sleepycat.persist.EntityStore;
 import com.sleepycat.persist.PrimaryIndex;
 import com.sleepycat.persist.StoreConfig;
@@ -15,6 +17,8 @@ public class DBWrapper {
 	private static EntityStore store;
 	
 	private static PrimaryIndex<String, Site> headQueue;
+	private static PrimaryIndex<String, Site> getQueue;
+	private static PrimaryIndex<String, HostInfo> hostInfo;
 	
 	/**
 	 * Create the DB if it doesn't exist and open it if it does exist.
@@ -41,14 +45,35 @@ public class DBWrapper {
         System.out.println(dir.getAbsolutePath());
         store = new EntityStore(myEnv, "EntityStore", storeConfig);
         headQueue = store.getPrimaryIndex(String.class, Site.class);
+        getQueue = store.getPrimaryIndex(String.class, Site.class);
+        hostInfo = store.getPrimaryIndex(String.class, HostInfo.class);
         DatabaseShutdownHook hook = new DatabaseShutdownHook(myEnv, store);
         Runtime.getRuntime().addShutdownHook(hook);
         System.out.println("Database Started");
 	}
 	
+	/**
+	 * Acquires a write lock then does gets a cursor and iterates
+	 * over the index until it gets and deletes as many entities as requested.
+	 * @param count
+	 */
 	public static LinkedList<Site> batchPullFromHead(int count) {
-		//return headQueue.get(term);
-		return null;
+		EntityCursor<Site> cursor = headQueue.entities();
+		LinkedList<Site> sites = new LinkedList<Site>();
+		try {
+			Site entity;
+			while ((entity = cursor.next(LockMode.RMW)) != null) {
+				sites.add(entity);
+				System.out.println(entity.getSite());
+				cursor.delete();
+				if (sites.size() == count) {
+					break;
+				}
+			}
+		} finally {
+			cursor.close();
+		}	
+		return sites;
 	}
 	
 	public static void putToHeadQueue(Site site) {
@@ -57,6 +82,42 @@ public class DBWrapper {
 	
 	public static void deleteFromHeadQueue(String url) {
 		headQueue.delete(url);
+	}
+	
+	/**
+	 * Acquires a write lock then does gets a cursor and iterates
+	 * over the index until it gets and deletes as many entities as requested.
+	 * @param count
+	 */
+	public static LinkedList<Site> batchPullFromGet(int count) {
+		EntityCursor<Site> cursor = getQueue.entities();
+		LinkedList<Site> sites = new LinkedList<Site>();
+		try {
+			Site entity;
+			while ((entity = cursor.next(LockMode.RMW)) != null) {
+				sites.add(entity);
+				cursor.delete();
+				if (sites.size() == count) {
+					break;
+				}
+			}
+		} finally {
+			cursor.close();
+		}	
+		return sites;
+	}
+	
+	public static void putToGetQueue(Site site) {
+		getQueue.put(site);
+	}
+	
+	public static void deleteFromGetQueue(String url) {
+		getQueue.delete(url);
+	}
+	
+	public static HostInfo getHostInfo(String host) {
+		hostInfo.getDatabase();
+		return null;
 	}
 
 	public static void sync() {
