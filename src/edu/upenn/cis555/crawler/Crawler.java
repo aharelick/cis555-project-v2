@@ -11,6 +11,8 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 public class Crawler {
+	private static long maxFileSize;
+	private static String S3logDirectory;
 	/**
 	 * The main method initializes and runs the crawler. All threads used in
 	 * the crawler and all databases are initialized here.
@@ -25,19 +27,17 @@ public class Crawler {
 		//initialize the static DBWrapper with the given path
 		DBWrapper.init(args[1]);
 
-		maxSize = Long.parseLong(args[2])*1000000;
+		maxFileSize = Long.parseLong(args[3])*1000000;
 		
-		//add the list of URLs to the beginning of the HEADqueue
+		//add the list of URLs to the beginning of the HeadQueue
 		for (String url : args[0].split(",")) {
 			addToHeadQueue(new URL(url));
 		}
 			
-		//set the FileWriter for logging for S3 
-		directory = new File(args[3]);
+		//set the directory for logging and initialize the FileWriter to S3
+		S3logDirectory = new File(args[2]);
 		S3FileWriter.setDocFileWriter(directory);
 		S3FileWriter.setUrlFileWriter(directory);
-		//initialize URL to URL list map 	
-		urlToUrlList = new HashMap<String, ArrayList<String>>();
 		
 		//Create thread pools to run the crawler
 		Thread[] headPool = new Thread[50];
