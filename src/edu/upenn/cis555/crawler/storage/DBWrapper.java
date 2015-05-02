@@ -3,9 +3,18 @@ package edu.upenn.cis555.crawler.storage;
 import java.io.File;
 import java.util.LinkedList;
 
+import com.sleepycat.bind.EntityBinding;
+import com.sleepycat.bind.EntryBinding;
+import com.sleepycat.bind.tuple.TupleBinding;
+import com.sleepycat.bind.tuple.TupleInput;
+import com.sleepycat.je.Cursor;
+import com.sleepycat.je.CursorConfig;
+import com.sleepycat.je.Database;
+import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.LockMode;
+import com.sleepycat.je.OperationStatus;
 import com.sleepycat.persist.EntityCursor;
 import com.sleepycat.persist.EntityStore;
 import com.sleepycat.persist.PrimaryIndex;
@@ -19,6 +28,7 @@ public class DBWrapper {
 	private static PrimaryIndex<String, Site> headQueue;
 	private static PrimaryIndex<String, Site> getQueue;
 	private static PrimaryIndex<String, HostInfo> hostInfo;
+	private static PrimaryIndex<String, Site> crawledSites;
 	
 	/**
 	 * Create the DB if it doesn't exist and open it if it does exist.
@@ -47,6 +57,7 @@ public class DBWrapper {
         headQueue = store.getPrimaryIndex(String.class, Site.class);
         getQueue = store.getPrimaryIndex(String.class, Site.class);
         hostInfo = store.getPrimaryIndex(String.class, HostInfo.class);
+        crawledSites = store.getPrimaryIndex(String.class, Site.class);
         DatabaseShutdownHook hook = new DatabaseShutdownHook(myEnv, store);
         Runtime.getRuntime().addShutdownHook(hook);
         System.out.println("Database Started");
@@ -116,8 +127,30 @@ public class DBWrapper {
 	}
 	
 	public static HostInfo getHostInfo(String host) {
-		hostInfo.getDatabase();
+		Database db = hostInfo.getDatabase();
+		Cursor cursor = db.openCursor(null, null);
+		DatabaseEntry key = new DatabaseEntry(host.getBytes("UTF-8"));
+	    DatabaseEntry data = new DatabaseEntry();
+	    if (cursor.getSearchKey(key, data, LockMode.RMW) == OperationStatus.SUCCESS) {
+	    	EntityBinding<HostInfo> binding = hostInfo.getEntityBinding();
+	    	TupleBinding<HostInfo> tup = new TupleBinding<HostInfo>();
+	    	tup.entryToObject(data);
+	        return data.getData();
+	    }
+	      return null;
 		return null;
+	}
+	
+	public static Site getCrawledSite(String key) {
+		return crawledSites.get(key);
+	}
+	
+	public static void putCrawledSite(Site site) {
+		crawledSites.put(site);
+	}
+
+	public static void deleteCrawledSite(String key) {
+		crawledSites.delete(key);
 	}
 
 	public static void sync() {
