@@ -33,6 +33,7 @@ import org.jsoup.nodes.Element;
 import edu.upenn.cis555.crawler.storage.DBWrapper;
 import edu.upenn.cis555.crawler.storage.S3FileWriter;
 import edu.upenn.cis555.crawler.storage.Site;
+import edu.upenn.cis555.crawler.storage.SiteBare;
 
 public class Crawler {
 	private static int portNumber = 5555;
@@ -235,6 +236,7 @@ public class Crawler {
 	
 	//======================HEAD and GET FUNCTIONS==============================
 	static void processHead(Site url) {
+		
 		//need to check if the url's host already has a robots.txt in the DB
 		
 		//need to set the contentType of the URL!!!
@@ -288,10 +290,10 @@ public class Crawler {
 			crawled.setContentType("text/html");
 			crawled.setBody(body);
 			crawled.setChildren(children);
+			DBWrapper.putWriteToFileQueue(crawled);
 			
 			//add this URL to the list of crawled URLs
-			DBWrapper.putCrawledSite(url.getSite());
-			
+			DBWrapper.putCrawledSite(new SiteBare(url.getSite()));		
 			return;
 		} else {
 			return;

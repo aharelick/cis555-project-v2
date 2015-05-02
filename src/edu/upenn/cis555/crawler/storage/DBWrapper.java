@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.LinkedList;
 
 import com.sleepycat.bind.EntityBinding;
+import com.sleepycat.bind.EntryBinding;
 import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseEntry;
@@ -24,7 +25,8 @@ public class DBWrapper {
 	private static PrimaryIndex<String, Site> headQueue;
 	private static PrimaryIndex<String, Site> getQueue;
 	private static PrimaryIndex<String, HostInfo> hostInfo;
-	private static PrimaryIndex<String, Site> crawledSites;
+	private static PrimaryIndex<String, SiteBare> crawledSites;
+	private static PrimaryIndex<String, Site> writeToFileQueue;
 	
 	/**
 	 * Create the DB if it doesn't exist and open it if it does exist.
@@ -53,7 +55,8 @@ public class DBWrapper {
         headQueue = store.getPrimaryIndex(String.class, Site.class);
         getQueue = store.getPrimaryIndex(String.class, Site.class);
         hostInfo = store.getPrimaryIndex(String.class, HostInfo.class);
-        crawledSites = store.getPrimaryIndex(String.class, Site.class);
+        crawledSites = store.getPrimaryIndex(String.class, SiteBare.class);
+        writeToFileQueue = store.getPrimaryIndex(String.class, Site.class);
         DatabaseShutdownHook hook = new DatabaseShutdownHook(myEnv, store);
         Runtime.getRuntime().addShutdownHook(hook);
         System.out.println("Database Started");
@@ -125,10 +128,9 @@ public class DBWrapper {
 	public static HostInfo getHostInfo(String host) {
 		Database db = hostInfo.getDatabase();
     	EntityBinding<HostInfo> binding = hostInfo.getEntityBinding();
-		HostInfo tempHost = new HostInfo();
-		tempHost.setHostname(host);
-		DatabaseEntry key = new DatabaseEntry();
-		binding.objectToKey(tempHost, key);
+    	EntryBinding<String> keybinding = hostInfo.getKeyBinding();
+    	DatabaseEntry key = new DatabaseEntry(); 
+    	keybinding.objectToEntry(host, key);
 		Cursor cursor = db.openCursor(null, null);
 	    DatabaseEntry data = new DatabaseEntry();
 	    if (cursor.getSearchKey(key, data, LockMode.RMW) == OperationStatus.SUCCESS) {
@@ -149,16 +151,26 @@ public class DBWrapper {
 		hostInfo.delete(host);
 	}
 	
-	public static Site getCrawledSite(String key) {
+	public static SiteBare getCrawledSite(String key) {
 		return crawledSites.get(key);
 	}
 	
-	public static void putCrawledSite(Site site) {
+	public static void putCrawledSite(SiteBare site) {
 		crawledSites.put(site);
 	}
 
 	public static void deleteCrawledSite(String key) {
 		crawledSites.delete(key);
+	}
+	
+	public static Site popWriteToFileQueue() {
+		EntityCursor<Site> cursor = writeToFileQueue.entities();
+		Site site = cursor.next(LockMode.RMW);
+		return site;
+	}
+	
+	public static void putWriteToFileQueue(Site site) {
+		writeToFileQueue.put(site);
 	}
 
 	public static void sync() {
