@@ -284,10 +284,13 @@ public class Crawler {
 			sendURLsToNodes(nodes);
 			
 			//write the body and list of URLs to the DB
-			url.setChildren(children);
-			url.setBody(body);
+			Site crawled = new Site(url.getSite(), 0);
+			crawled.setContentType("text/html");
+			crawled.setBody(body);
+			crawled.setChildren(children);
+			
 			//add this URL to the list of crawled URLs
-			DBWrapper.putCrawledSite(url);
+			DBWrapper.putCrawledSite(url.getSite());
 			
 			return;
 		} else {
