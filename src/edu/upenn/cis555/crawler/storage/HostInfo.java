@@ -34,6 +34,10 @@ public class HostInfo {
 		this.hostname = hostname;
 	}
 	
+	public String getHostname() {
+		return hostname;
+	}
+	
 	public void setNextRequestTime(long time) {
 		nextRequestTime = time;
 	}

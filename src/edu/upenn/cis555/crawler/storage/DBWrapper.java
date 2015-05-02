@@ -1,7 +1,6 @@
 package edu.upenn.cis555.crawler.storage;
 
 import java.io.File;
-import java.io.UnsupportedEncodingException;
 import java.util.LinkedList;
 
 import com.sleepycat.bind.EntityBinding;
@@ -126,19 +125,18 @@ public class DBWrapper {
 	public static HostInfo getHostInfo(String host) {
 		Database db = hostInfo.getDatabase();
     	EntityBinding<HostInfo> binding = hostInfo.getEntityBinding();
+		HostInfo tempHost = new HostInfo();
+		tempHost.setHostname(host);
+		DatabaseEntry key = new DatabaseEntry();
+		binding.objectToKey(tempHost, key);
 		Cursor cursor = db.openCursor(null, null);
-		DatabaseEntry key = null;
-		try {
-			key = new DatabaseEntry(host.getBytes("UTF-8"));
-		} catch (UnsupportedEncodingException e) {
-			e.printStackTrace();
-			return null;
-		}
 	    DatabaseEntry data = new DatabaseEntry();
 	    if (cursor.getSearchKey(key, data, LockMode.RMW) == OperationStatus.SUCCESS) {
 	    	HostInfo info = binding.entryToObject(key, data);
+	    	cursor.close();
 	    	return info;
 	    } else {
+	    	cursor.close();
 	    	return null;
 	    }
 	}
