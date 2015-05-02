@@ -1,9 +1,13 @@
 package edu.upenn.cis555.crawler;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.math.BigInteger;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -14,6 +18,7 @@ import java.net.URLConnection;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Timer;
@@ -28,10 +33,10 @@ import org.jsoup.nodes.Element;
 import edu.upenn.cis555.crawler.storage.DBWrapper;
 import edu.upenn.cis555.crawler.storage.S3FileWriter;
 import edu.upenn.cis555.crawler.storage.Site;
-import edu.upenn.cis555.legacy.URLWrapper;
 
 public class Crawler {
 	private static int portNumber = 5555;
+	private static HashMap<Integer, URL> IPaddresses = new HashMap<Integer, URL>();
 	private static long maxFileSize;
 	private static File S3logDirectory;
 	private static boolean shutdown = false;
@@ -45,9 +50,10 @@ public class Crawler {
 	 */
 	public static void main(String[] args) {
 		
-		if (args.length != 4) {
+		if (args.length != 5) {
 			System.out.println("Usage: <comma separated start URLs>"
-					+ " <path to BDB> <path to S3 log> <max size in MB>");
+					+ " <path to BDB> <path to S3 log> <max size in MB> "
+					+ "<comma separated list of ip addresses");
 			System.exit(-1);
 		}
 		//initialize the static DBWrapper with the given path
@@ -55,6 +61,15 @@ public class Crawler {
 
 		maxFileSize = Long.parseLong(args[3])*1000000;
 		
+		//populate the map of IP addresses
+		String[] ips = args[4].split(",");
+		for (int i = 0; i < ips.length; i++) {
+			try {
+				IPaddresses.put(i, new URL(ips[i]));
+			} catch (MalformedURLException e) {
+				e.printStackTrace();
+			}
+		}
 		//add the list of URLs to the beginning of the HeadQueue
 		for (String url : args[0].split(",")) {
 			DBWrapper.putToHeadQueue(new Site(url, System.currentTimeMillis()));
@@ -207,17 +222,8 @@ public class Crawler {
         		if (currentSocket == null) {
         			break;
         		}
-        		//class to parse the request and generate response
-        	//	RequestHandler handler =
-        		//		new RequestHandler(currentSocket, root, 
-        			//				servlets, patterns, log);
-        		int code = handler.parseRequest();
-        		//shutdown request
-        		if (code == 1) {
-        			System.out.println("Shutting down...");
-        			shutdown = true;
-        			queue.shutdown();
-        		}	
+        		int code = parseRequest(currentSocket);
+        		
         		try {
 					currentSocket.close();
 				} catch (IOException e) {
@@ -237,8 +243,11 @@ public class Crawler {
 	static void processGet(Site url) {
 		//Send a GET request to the given URL
 		String body = null;
-		String protocol = new URL(url.getSite()).getProtocol();
+		String protocol = "";
+		URL siteURL = null;
 		try {
+			siteURL = new URL(url.getSite());
+			protocol = siteURL.getProtocol();
 			if (protocol.equals("https")) {
 				HttpsURLConnection res = https(new URL(url.getSite()), "GET");
 				System.out.println("Downloading: " + url.getSite());
@@ -261,8 +270,7 @@ public class Crawler {
 			Document doc = Jsoup.parse(body);
 			for (Element e : doc.select("a[href]")) {
 				URLWrapper child = new URLWrapper(e.attr("href"),
-					protocol, new URL(url.getSite()).getHost(), 
-					new URL(url.getSite()).getPath());
+					protocol, siteURL.getHost(), siteURL.getPath());
 				
 				//if we extract a valid URL, hash and send along to correct node
 				if (child.isGoodURL()) {
@@ -273,6 +281,7 @@ public class Crawler {
 				}		
 			}
 			//call client to send along lists of URLs for each node
+			sendURLsToNodes(nodes);
 			
 			//write the body and list of URLs to the DB
 			url.setChildren(children);
@@ -350,7 +359,7 @@ public class Crawler {
 	}
 	
 	/**
-	 * Method to hash the given host name and assign it a number, 0-9, of which
+	 * Method to hash the given host name and assign it a number of which
 	 * node it should be sent to, based on the range of the hash.
 	 */
 	private static int hashRange(String host) {
@@ -365,9 +374,10 @@ public class Crawler {
         BigInteger bigDigest = new BigInteger(1, digest.digest());
         BigInteger blank160 = BigInteger.ZERO.setBit(160);
 		BigInteger max = blank160.subtract(BigInteger.ONE);
-        BigInteger range = (max.add(BigInteger.ONE)).divide(BigInteger.valueOf(10));
+        BigInteger range = (max.add(BigInteger.ONE)).divide(
+        		BigInteger.valueOf(IPaddresses.size()));
         int i;
-        for (i = 1; i <= 10; i++) {
+        for (i = 1; i <= IPaddresses.size(); i++) {
         	if ((range.multiply(BigInteger.valueOf(i)).compareTo(bigDigest)) == 1) {
         		break;
         	}
@@ -375,12 +385,41 @@ public class Crawler {
         return i - 1;
 	}
 	
+	/**
+	 * Method to read a list of all the URLs that should be sent to each node
+	 * and then send a POST request with a body of the URLs.
+	 */
+	private static void sendURLsToNodes(ArrayList<LinkedList<String>> urls) {
+		for (int i = 0; i < IPaddresses.size(); i++) {
+			try {
+				Socket socket = 
+						new Socket(IPaddresses.get(i).getHost(), portNumber);
+				OutputStream out = socket.getOutputStream();
+				out.write(("POST " + "/" + " HTTP/1.0\r\n").getBytes());
+				out.write("User-Agent: cis455crawler\r\n".getBytes());
+				String output = "";
+				for (String url : urls.get(i)) {
+					output.concat(url + "\r\n");
+				}
+				out.write(("Content-Length: " + output.length() +
+						"\r\n\r\n").getBytes());
+				out.write(output.getBytes());
+				out.write(("/r/n").getBytes());
+				out.flush();
+				out.close();
+				socket.close();
+			} catch(Exception e) {
+				System.out.println(e);
+			} 
+		}	
+	}
+	
 	//========================PRIVATE REQUEST HELPERS==========================
 	/**
 	 * This function is called to start the crawler threads after the main has
 	 * already been started manually and it is listening on a server socket.
 	 */
-	private void requestToStartCrawler() {
+	private static void requestToStartCrawler() {
 		//Create thread pools used in the crawler
 		Thread[] headPool = new Thread[50];
 		Thread[] getPool = new Thread[50];
@@ -404,26 +443,42 @@ public class Crawler {
 	 * This function is called to shutdown the crawler completely, needs a 
 	 * manual restart.
 	 */
-	private void requestToShutdownCrawler() {
-		System.out.println("clearing queue of links from previous crawl");
-		clearQueues();
-		clearServerFutureCrawlTimeIndex();
+	private static void requestToShutdownCrawler() {
+		System.out.println("Shutting down the crawler.");
+	//TODO IMPLEMENT this
 	}
 	
-	private void requestToClearQueues() {
-		System.out.println("clearing queue of links from previous crawl");
-		clearQueues();
-		clearServerFutureCrawlTimeIndex();
+	private static void requestToClearQueues() {
+		System.out.println("Clearing queue of links from previous crawl");
+	//TODO 
 	}
 	
-	private void requestToAddToHead() {
-		String urlString = child.getURL().toString();
+	private static void requestToAddToHead() {
+		/*String urlString = child.getURL().toString();
 		System.out.println("DELETE THIS later " + urlString);
 		//need to make sure never in the crawled database
 		 if (DBWrapper.getCrawledSite(urlString) == null) {
 			//hash the URL, send to the appropriate node
+			*/
+		 
+	}
+	
+	private static int parseRequest(Socket socket) {
+		try {
+			BufferedReader in = new BufferedReader(
+					new InputStreamReader(socket.getInputStream()));
+			String line;
+			while(!in.readLine().equals("")) {
+				
+			}
 			
-		 }
+			
+			
+			
+			
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	
