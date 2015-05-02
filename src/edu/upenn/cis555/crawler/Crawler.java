@@ -11,6 +11,7 @@ import java.net.Socket;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -251,20 +252,30 @@ public class Crawler {
 		if (url.getContentType() == null) {
 			return;
 		} else if (url.getContentType().equals("text/html")) {
-			ArrayList<String> nodes = new ArrayList<String>();
+			ArrayList<LinkedList<String>> nodes =
+					new ArrayList<LinkedList<String>>();
+			LinkedList<String> children = new LinkedList<String>();
 			Document doc = Jsoup.parse(body);
 			for (Element e : doc.select("a[href]")) {
 				URLWrapper child = new URLWrapper(e.attr("href"),
 					protocol, new URL(url.getSite()).getHost(), 
 					new URL(url.getSite()).getPath());
-				//if we extract a valid URL, check if it has been crawled before
+				
+				//if we extract a valid URL, hash and send along to correct node
 				if (child.isGoodURL()) {
-					String urlString = child.getURL().toString();
-					System.out.println("DELETE THIS later " + urlString);
-				}
-				//hash the URL, send to the appropriate node	
+					children.add(child.getURL().toString());
+					//get the correct node to send URL to
+					int node = hashRange(child.getURL().getHost());
+					nodes.get(node).add(child.getURL().toString());
+				}		
 			}
+			//call client to send along lists of URLs for each node
+			
 			//write the file to the DB
+			
+			
+			//add this URL to the list of crawled URLs
+			DBWrapper.putCrawledSite(url);
 			
 			return;
 		} else {
@@ -374,6 +385,16 @@ public class Crawler {
 		System.out.println("clearing queue of links from previous crawl");
 		clearQueues();
 		clearServerFutureCrawlTimeIndex();
+	}
+	
+	private void requestToAddToHead() {
+		String urlString = child.getURL().toString();
+		System.out.println("DELETE THIS later " + urlString);
+		//need to make sure never in the crawled database
+		 if (DBWrapper.getCrawledSite(urlString) == null) {
+			//hash the URL, send to the appropriate node
+			
+		 }
 	}
 	
 	
