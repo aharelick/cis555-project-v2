@@ -222,8 +222,8 @@ public class Crawler {
         		if (currentSocket == null) {
         			break;
         		}
-        		int code = parseRequest(currentSocket);
-        		
+        		//helper below, calls start, stop, clear, or add to queue
+        		parseRequest(currentSocket);
         		try {
 					currentSocket.close();
 				} catch (IOException e) {
@@ -395,7 +395,7 @@ public class Crawler {
 				Socket socket = 
 						new Socket(IPaddresses.get(i).getHost(), portNumber);
 				OutputStream out = socket.getOutputStream();
-				out.write(("POST " + "/" + " HTTP/1.0\r\n").getBytes());
+				out.write(("POST " + "/urls" + " HTTP/1.0\r\n").getBytes());
 				out.write("User-Agent: cis455crawler\r\n".getBytes());
 				String output = "";
 				for (String url : urls.get(i)) {
@@ -445,7 +445,10 @@ public class Crawler {
 	 */
 	private static void requestToShutdownCrawler() {
 		System.out.println("Shutting down the crawler.");
-	//TODO IMPLEMENT this
+		shutdown = true;
+		requestQueue.shutdown();
+		headQueue.shutdown();
+		getQueue.shutdown();
 	}
 	
 	private static void requestToClearQueues() {
@@ -453,34 +456,47 @@ public class Crawler {
 	//TODO 
 	}
 	
-	private static void requestToAddToHead() {
-		/*String urlString = child.getURL().toString();
-		System.out.println("DELETE THIS later " + urlString);
+	private static void requestToAddToHead(String url) {
 		//need to make sure never in the crawled database
-		 if (DBWrapper.getCrawledSite(urlString) == null) {
-			//hash the URL, send to the appropriate node
-			*/
+		 if (DBWrapper.getCrawledSite(url) == null) {
+			//TODO add to the head with the appropriate crawl delay
+		 }
+			
 		 
 	}
 	
-	private static int parseRequest(Socket socket) {
+	/**
+	 * Parses the request picked off the queue by the request worker thread.
+	 * Either starts, stops, clears the queue, or adds urls to the head
+	 * @param socket
+	 */
+	private static void parseRequest(Socket socket) {
 		try {
 			BufferedReader in = new BufferedReader(
 					new InputStreamReader(socket.getInputStream()));
 			String line = in.readLine();
-			while(!line.equals("")) {
-				line = in.readLine();
-			}
-			//should be at start of body
-			while (line != null) {
-				System.out.println(line);
-			}
-		
-			
+			String path = line.split(" ")[1];
+			if (path.equals("start")) {
+				requestToStartCrawler();
+			} else if (path.equals("stop")) {
+				requestToShutdownCrawler();
+			} else if (path.equals("clear")) {
+				requestToClearQueues();
+			} else if (path.equals("urls")) {
+				//parse through the head
+				while(!line.equals("")) {
+					line = in.readLine();
+				}
+				//should be at start of body
+				while (line != null) {
+					System.out.println(line);
+					line = in.readLine();
+					requestToAddToHead(line.trim());	
+				}
+			}		
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		return 0;
 	}
 	
 	
