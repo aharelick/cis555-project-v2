@@ -467,18 +467,20 @@ public class Crawler {
 		try {
 			BufferedReader in = new BufferedReader(
 					new InputStreamReader(socket.getInputStream()));
-			String line;
-			while(!in.readLine().equals("")) {
-				
+			String line = in.readLine();
+			while(!line.equals("")) {
+				line = in.readLine();
 			}
-			
-			
-			
-			
+			//should be at start of body
+			while (line != null) {
+				System.out.println(line);
+			}
+		
 			
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		return 0;
 	}
 	
 	
