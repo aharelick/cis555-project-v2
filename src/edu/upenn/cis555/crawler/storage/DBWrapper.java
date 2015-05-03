@@ -1,6 +1,7 @@
 package edu.upenn.cis555.crawler.storage;
 
 import java.io.File;
+import java.util.Iterator;
 import java.util.LinkedList;
 
 import com.sleepycat.bind.EntityBinding;
@@ -20,7 +21,12 @@ import com.sleepycat.persist.StoreConfig;
 public class DBWrapper {
 	
 	private static Environment myEnv;
-	private static EntityStore store;
+	private static EntityStore headStore;
+	private static EntityStore getStore;
+	private static EntityStore hostStore;
+	private static EntityStore fileQueueStore;
+	private static EntityStore crawledStore;
+	
 	
 	private static PrimaryIndex<String, Site> headQueue;
 	private static PrimaryIndex<String, Site> getQueue;
@@ -51,13 +57,18 @@ public class DBWrapper {
         
         myEnv = new Environment(dir,envConfig);
         System.out.println(dir.getAbsolutePath());
-        store = new EntityStore(myEnv, "EntityStore", storeConfig);
-        headQueue = store.getPrimaryIndex(String.class, Site.class);
-        getQueue = store.getPrimaryIndex(String.class, Site.class);
-        hostInfo = store.getPrimaryIndex(String.class, HostInfo.class);
-        crawledSites = store.getPrimaryIndex(String.class, SiteBare.class);
-        writeToFileQueue = store.getPrimaryIndex(String.class, Site.class);
-        DatabaseShutdownHook hook = new DatabaseShutdownHook(myEnv, store);
+        headStore = new EntityStore(myEnv, "headStore", storeConfig);
+        headQueue = headStore.getPrimaryIndex(String.class, Site.class);
+        getStore = new EntityStore(myEnv, "getStore", storeConfig);
+        getQueue = getStore.getPrimaryIndex(String.class, Site.class);
+        hostStore = new EntityStore(myEnv, "hostStore", storeConfig);
+        hostInfo = hostStore.getPrimaryIndex(String.class, HostInfo.class);
+        crawledStore = new EntityStore(myEnv, "crawledStore", storeConfig);
+        crawledSites = crawledStore.getPrimaryIndex(String.class, SiteBare.class);
+        fileQueueStore = new EntityStore(myEnv, "fileQueueStore", storeConfig);
+        writeToFileQueue = fileQueueStore.getPrimaryIndex(String.class, Site.class);
+        DatabaseShutdownHook hook = new DatabaseShutdownHook(myEnv, hostStore,
+        		headStore, getStore, crawledStore, fileQueueStore);
         Runtime.getRuntime().addShutdownHook(hook);
         System.out.println("Database Started");
 	}
@@ -86,7 +97,6 @@ public class DBWrapper {
 	}
 	
 	public static void putToHeadQueue(Site site) {
-		System.out.println("adding " + site.getSite() + "to queue");
 		headQueue.put(site);
 	}
 	
@@ -205,7 +215,11 @@ public class DBWrapper {
 	}
 	
 	public static void close() {
-		store.close();
+		hostStore.close();
+		headStore.close();
+		getStore.close();
+		crawledStore.close();
+		fileQueueStore.close();
 		myEnv.close();
 	}
 }
