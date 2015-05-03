@@ -171,17 +171,33 @@ public class DBWrapper {
 	}
 	
 	public static Site popWriteToFileQueue() {
-		Database db = writeToFileQueue.getDatabase();
-		Cursor cursor = db.openCursor(null, null);
-		
-		EntityCursor<Site> cursor = writeToFileQueue.entities();
-		Site site = cursor.next(LockMode.RMW);
-		cursor.close();
+		Site site;
+		synchronized (writeToFileQueue) {
+			EntityCursor<Site> cursor = writeToFileQueue.entities();
+			site = cursor.next(LockMode.RMW);
+			cursor.close();
+		}
 		return site;
 	}
 	
 	public static void putWriteToFileQueue(Site site) {
-		writeToFileQueue.put(site);
+		synchronized (writeToFileQueue) {
+			writeToFileQueue.put(site);
+		}
+	}
+	
+	public static void clearGetQueue() {
+		EntityCursor<Site> cursor = getQueue.entities();
+		while (cursor.next() != null) {
+			cursor.delete();
+		}
+	}
+	
+	public static void clearHeadQueue() {
+		EntityCursor<Site> cursor = headQueue.entities();
+		while (cursor.next() != null) {
+			cursor.delete();
+		}
 	}
 
 	public static void sync() {
