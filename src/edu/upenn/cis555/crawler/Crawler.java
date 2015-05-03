@@ -391,6 +391,8 @@ public class Crawler {
 				contentLength = connect.getContentLength();
 				if (contentType == null) {
 					return;
+				} else if (!contentType.startsWith("text/html")) {
+					return;
 				}
 				// content length
 				if (contentLength > maxFileSize) {
@@ -691,10 +693,12 @@ public class Crawler {
 	 */
 	private static void requestToStartCrawler() {
 		//Create thread pools used in the crawler
+
 		Thread[] headPool = new Thread[100];
 		Thread[] getPool = new Thread[100];
 		Thread[] fileWritingPool = new Thread[100];
 		for (int i = 0; i < 100; i++) {
+
 			headPool[i] = new Thread(new HeadThreadRunnable());
 			headPool[i].start();
 			getPool[i] = new Thread(new GetThreadRunnable());
@@ -706,7 +710,7 @@ public class Crawler {
 		TimerTask s3WritingTask = new S3WritingTask();
 		Timer s3Handler = new Timer(true);
 		//wait 20 minutes to start, try every 20 minutes
-		s3Handler.scheduleAtFixedRate(s3WritingTask, 150000, 150000);
+		s3Handler.scheduleAtFixedRate(s3WritingTask, 300000, 1200000);
 		
 		//initialize the timer task for buffering into the queue	
 		TimerTask batchUploadTask = new BatchUploadTask();
