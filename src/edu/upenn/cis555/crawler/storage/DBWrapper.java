@@ -150,7 +150,8 @@ public class DBWrapper {
 	    DatabaseEntry data = new DatabaseEntry();
 	    if (cursor.getSearchKey(key, data, LockMode.RMW) == OperationStatus.SUCCESS) {
 	    	HostInfo info = binding.entryToObject(key, data);
-	    	info.setNextRequestTime(info.getNextRequestTime() + (info.crawlDelayFor555() * 1000));
+	    	info.setNextRequestTime((long) (info.getNextRequestTime() +
+	    			(info.crawlDelayFor555() * 1000)));
 	    	binding.objectToData(info, data);
 	    	cursor.putCurrent(data);
 	    	cursor.close();

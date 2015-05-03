@@ -325,8 +325,8 @@ public class Crawler {
 				robots = new HostInfo();
 			}
 			robots.setHostname(siteURL.getHost());
-			long nextCrawlTime = System.currentTimeMillis() 
-					+ robots.crawlDelayFor555()*1000;
+			long nextCrawlTime = (long) (System.currentTimeMillis() 
+					+ robots.crawlDelayFor555()*1000);
 			robots.setNextRequestTime(nextCrawlTime);
 			//add the new robots.txt info to the database
 			DBWrapper.putHostInfo(robots);
@@ -637,7 +637,7 @@ public class Crawler {
 					info.addAllowedLink(agent, link);
 				}
 				if (delay != null) {
-					info.addCrawlDelay(agent, Integer.parseInt(delay));
+					info.addCrawlDelay(agent, Double.parseDouble(delay));
 				}
 				for (String link : sitemap) {
 					info.addSitemapLink(link);

@@ -15,7 +15,7 @@ public class HostInfo {
 	private HashMap<String,ArrayList<String>> disallowedLinks;
 	private HashMap<String,ArrayList<String>> allowedLinks;
 	
-	private HashMap<String,Integer> crawlDelays;
+	private HashMap<String,Double> crawlDelays;
 	private ArrayList<String> sitemapLinks;
 	private ArrayList<String> userAgents;
 	
@@ -25,7 +25,7 @@ public class HostInfo {
 	public HostInfo() {
 		disallowedLinks = new HashMap<String,ArrayList<String>>();
 		allowedLinks = new HashMap<String,ArrayList<String>>();
-		crawlDelays = new HashMap<String,Integer>();
+		crawlDelays = new HashMap<String,Double>();
 		sitemapLinks = new ArrayList<String>();
 		userAgents = new ArrayList<String>();
 	}
@@ -76,8 +76,8 @@ public class HostInfo {
 		}
 	}
 	
-	public void addCrawlDelay(String key, Integer value){
-		crawlDelays.put(key, value);
+	public void addCrawlDelay(String key, double d){
+		crawlDelays.put(key, d);
 	}
 	
 	public void addSitemapLink(String val){
@@ -100,7 +100,7 @@ public class HostInfo {
 		return allowedLinks.get(key);
 	}
 	
-	public int getCrawlDelay(String key){
+	public double getCrawlDelay(String key){
 		return crawlDelays.get(key);
 	}
 	
@@ -137,7 +137,7 @@ public class HostInfo {
 	 * @param date - the date to be used in an if modified, null when not using that header
 	 * @return
 	 */
-	public int crawlDelayFor555() {
+	public double crawlDelayFor555() {
 		if (crawlDelays.containsKey("cis455crawler")) {
 			return crawlDelays.get("cis455crawler");
 		} else if (crawlDelays.containsKey("*")) {
