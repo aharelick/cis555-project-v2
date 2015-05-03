@@ -71,7 +71,6 @@ public class Crawler {
 		//add the list of URLs to the beginning of the HeadQueue
 		for (String url : args[0].split(",")) {
 			DBWrapper.putToHeadQueue(new Site(url, System.currentTimeMillis()));
-			DBWrapper.putToGetQueue(new Site(url, System.currentTimeMillis()));
 		}
 			
 		//set the directory for logging and initialize the FileWriter to S3
@@ -122,6 +121,7 @@ public class Crawler {
 					processHead(url);
 				} else {
 					try {
+						System.out.println("Head sleeping for " + delay);
 						Thread.sleep(delay);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
@@ -151,6 +151,7 @@ public class Crawler {
 					processGet(url);
 				} else {
 					try {
+						System.out.println("Get sleeping for " + delay);
 						Thread.sleep(delay);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
@@ -170,6 +171,15 @@ public class Crawler {
 			while (!shutdown) { 
 				//need to pick off file queue from DB (no need to buffer)
 				Site writeMe = DBWrapper.popWriteToFileQueue();
+				if (writeMe == null) {
+					try {
+						Thread.sleep(1500);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+						break;
+					}
+					continue;
+				}
 				//then process the file by writing it to the S3 file
 				String docLine = S3FileWriter.prepareFileLineDoc(
 						writeMe.getSite(), writeMe.getBody());
@@ -321,8 +331,7 @@ public class Crawler {
 			DBWrapper.putHostInfo(robots);
 			//put the URL back on the head queue with updated next crawl time
 			url.setNextRequestTime(nextCrawlTime);
-			System.out.println(System.currentTimeMillis() + " : " + nextCrawlTime);
-			DBWrapper.putToHeadQueue(new Site(url.getSite(), nextCrawlTime));
+			DBWrapper.putToHeadQueue(url);
 			
 		} else { //host already seen, proceed with head
 			System.out.println("Robots already downloaded, proceed with HEAD");
@@ -372,7 +381,6 @@ public class Crawler {
 				return;	
 			//200 OK, get content type and length and send to GET queue
 			} else if (responseCode == 200) {
-				System.out.println("200");
 				contentType = connect.getContentType();
 				url.setContentType(contentType);
 				contentLength = connect.getContentLength();
@@ -387,7 +395,7 @@ public class Crawler {
 				long nextCrawlTime = robots.getNextRequestTime();
 				url.setNextRequestTime(nextCrawlTime);
 				System.out.println("Putting onto GET from end of HEAD");
-				DBWrapper.putToGetQueue(new Site(url.getSite(), nextCrawlTime));
+				DBWrapper.putToGetQueue(url);
 			}
 		}
 	}
@@ -399,7 +407,6 @@ public class Crawler {
 	 */
 	static void processGet(Site url) {
 		//Send a GET request to the given URL
-		System.out.println("Starting the GET process");
 		String body = null;
 		String protocol = "";
 		URL siteURL = null;
@@ -421,21 +428,26 @@ public class Crawler {
 		//Read the response and parse the document for links
 		if (url.getContentType() == null) {
 			return;
-		} else if (url.getContentType().equals("text/html")) {
-			ArrayList<LinkedList<String>> nodes =
-					new ArrayList<LinkedList<String>>();
+		} else if (url.getContentType().startsWith("text/html")) {
+			System.out.println("correct content type");
+			LinkedList<String>[] nodes = new LinkedList[IPaddresses.size()];
+			//initialize all of the linkedlists
+			for (int i = 0; i < nodes.length; i++) {
+				nodes[i] = new LinkedList<String>();
+			}
 			LinkedList<String> children = new LinkedList<String>();
 			Document doc = Jsoup.parse(body);
 			for (Element e : doc.select("a[href]")) {
 				URLWrapper child = new URLWrapper(e.attr("href"),
 					protocol, siteURL.getHost(), siteURL.getPath());
-				
 				//if we extract a valid URL, hash and send along to correct node
 				if (child.isGoodURL()) {
+					System.out.println(child.getURL().toString());
 					children.add(child.getURL().toString());
 					//get the correct node to send URL to
 					int node = hashRange(child.getURL().getHost());
-					nodes.get(node).add(child.getURL().toString());
+					System.out.println(node);
+					nodes[node].add(child.getURL().toString());
 				}		
 			}
 			//call client to send along lists of URLs for each node
@@ -550,7 +562,7 @@ public class Crawler {
 	 * Method to read a list of all the URLs that should be sent to each node
 	 * and then send a POST request with a body of the URLs.
 	 */
-	private static void sendURLsToNodes(ArrayList<LinkedList<String>> urls) {
+	private static void sendURLsToNodes(LinkedList<String>[] urls) {
 		for (int i = 0; i < IPaddresses.size(); i++) {
 			try {
 				Socket socket = 
@@ -559,13 +571,12 @@ public class Crawler {
 				out.write(("POST " + "/urls" + " HTTP/1.0\r\n").getBytes());
 				out.write("User-Agent: cis455crawler\r\n".getBytes());
 				String output = "";
-				for (String url : urls.get(i)) {
-					output.concat(url + "\r\n");
+				for (String url : urls[i]) {
+					output = output.concat(url + "\r\n");
 				}
 				out.write(("Content-Length: " + output.length() +
 						"\r\n\r\n").getBytes());
 				out.write(output.getBytes());
-				out.write(("/r/n").getBytes());
 				out.flush();
 				out.close();
 				socket.close();
@@ -650,12 +661,12 @@ public class Crawler {
 			} else if (path.equals("/urls")) {
 				//parse through the head
 				while(!line.equals("")) {
+					System.out.println(line);
 					line = in.readLine();
 				}
 				//should be at start of body
-				while (line != null) {
+				while ((line = in.readLine()) != null) {
 					System.out.println("The body line is: " + line);
-					line = in.readLine();
 					requestToAddToHead(line.trim());	
 				}
 			}		
@@ -671,16 +682,16 @@ public class Crawler {
 	 */
 	private static void requestToStartCrawler() {
 		//Create thread pools used in the crawler
-		Thread[] headPool = new Thread[1];
-		Thread[] getPool = new Thread[1];
-		Thread[] fileWritingPool = new Thread[1];
-		for (int i = 0; i < 1; i++) {
+		Thread[] headPool = new Thread[3];
+		Thread[] getPool = new Thread[3];
+		Thread[] fileWritingPool = new Thread[3];
+		for (int i = 0; i < 3; i++) {
 			headPool[i] = new Thread(new HeadThreadRunnable());
 			headPool[i].start();
 			getPool[i] = new Thread(new GetThreadRunnable());
 			getPool[i].start();	
-		//	fileWritingPool[i] = new Thread(new FileWriterThreadRunnable());
-		//	fileWritingPool[i].start();
+			fileWritingPool[i] = new Thread(new FileWriterThreadRunnable());
+			fileWritingPool[i].start();
 		}	
 		//initialize the timer task for writing to S3	
 		TimerTask s3WritingTask = new S3WritingTask();
@@ -692,7 +703,7 @@ public class Crawler {
 		TimerTask batchUploadTask = new BatchUploadTask();
 		Timer batchUpload = new Timer(true);
 		//wait 10 seconds to start, check size every 10 seconds
-		batchUpload.scheduleAtFixedRate(batchUploadTask, 5000, 5000);
+		batchUpload.scheduleAtFixedRate(batchUploadTask, 3000, 3000);
 	}
 	
 	/**

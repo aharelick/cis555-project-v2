@@ -212,7 +212,7 @@ public class DBWrapper {
 	}
 
 	public static void sync() {
-		store.sync();
+	//	store.sync();
 	}
 	
 	public static void close() {
