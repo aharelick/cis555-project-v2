@@ -260,9 +260,20 @@ public class Crawler {
     }
 	
 	//======================HEAD and GET FUNCTIONS==============================
+	/**
+	 * The main function for handling the first half of the crawl. Checks for 
+	 * a robots.txt file, obeys it/fetches it, parses it, and/or sends a HEAD
+	 * request to the site and adds to GET queue
+	 */
 	static void processHead(Site url) {	
 		//need to check if the url's host already has a robots.txt in the DB
-		URL siteURL = new URL(url.getSite());
+		URL siteURL = null;
+		try {
+			siteURL = new URL(url.getSite());
+		} catch (MalformedURLException e1) {
+			e1.printStackTrace();
+		}
+		if (siteURL == null) { return; }
 		String protocol = siteURL.getProtocol();
 		HostInfo robots = DBWrapper.getHostInfo(siteURL.getHost());
 		URLConnection connect = null;
@@ -338,61 +349,40 @@ public class Crawler {
 			
 			//interpret the code appropriately
 			if (responseCode == 301 || responseCode == 307 ||
-					responseCode == 302) {
-				System.out.println("Redirecting to: " + redirect);
+					responseCode == 302) {	
 				//redirect and add to head queue if good url
 				URLWrapper redir = new URLWrapper(redirect, null, null, null);
 				if (redir.isGoodURL()) {
+					System.out.println("Redirecting to: " + redirect);
 					Site redSite = new Site(redir.getURL().toString(),
 							robots.getNextRequestTime());
 					DBWrapper.putToHeadQueue(redSite);
 				}		
 				return;	
-				
+			//200 OK, get content type and length and send to GET queue
 			} else if (responseCode == 200) {
-			
-		}
-		
-	
-		
-	
-		// response codes
-		
 				contentType = connect.getContentType();
+				url.setContentType(contentType);
 				contentLength = connect.getContentLength();
-			if (contentType == null) {
-				return;
+				if (contentType == null) {
+					return;
+				}
+				// content length
+				if (contentLength > maxFileSize) {
+					return;
+				}
+				//update crawl time and put to GET queue
+				url.setNextRequestTime(robots.getNextRequestTime());
+				DBWrapper.putToGetQueue(url);
 			}
-			// content length
-			if (contentLength > maxFileSize) {
-				return;
-			}
-			System.out.println("sleeping for " + robots.crawlDelayFor455() + " seconds");
-			sleep(robots.crawlDelayFor455());
-			System.out.println("sending get request to " + wrapper.getURL().toString());
-			if (http) {
-				connect = http(wrapper.getURL(), "GET", null);
-				body = inputStreamToString(connect);
-			} else {
-				connect = https(wrapper.getURL(), "GET", null);
-				body = inputStreamToString(connect);
-			}
-			System.out.println("got body of site from get req");
-			System.out.println("adding site to db: " + wrapper.getURL().toString());
-			site = new Site(wrapper.getURL().toString(), body, contentType);
-			DBWrapper.putSite(site);
-		} else if (headResponseCode == 304) {
-			contentType = site.getContentType();
-			site.setTime();
-			body = site.getBody();
-			System.out.println("got body of site from db");
-		} else {
-			return;
 		}
-		
-		//need to set the contentType of the URL!!!
 	}
 	
+	/**
+	 * The main function for processing the second half of the crawl. Sends a 
+	 * GET request to the given URL, parses the body if HTML, and extracts links
+	 * that are then added back to the head queue.
+	 */
 	static void processGet(Site url) {
 		//Send a GET request to the given URL
 		String body = null;
@@ -704,6 +694,7 @@ public class Crawler {
 	
 	private static void requestToClearQueues() {
 		System.out.println("Clearing queue of links from previous crawl");
+		
 	//TODO 
 	}
 	
