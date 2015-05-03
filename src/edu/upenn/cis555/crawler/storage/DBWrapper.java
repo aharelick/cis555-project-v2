@@ -125,6 +125,10 @@ public class DBWrapper {
 		getQueue.delete(url);
 	}
 	
+	public static HostInfo getHostInfo(String host) {
+		return hostInfo.get(host);
+	}
+	
 	public static long updateNextRequestTime(String host) {
 		Database db = hostInfo.getDatabase();
     	EntityBinding<HostInfo> binding = hostInfo.getEntityBinding();
@@ -136,7 +140,8 @@ public class DBWrapper {
 	    if (cursor.getSearchKey(key, data, LockMode.RMW) == OperationStatus.SUCCESS) {
 	    	HostInfo info = binding.entryToObject(key, data);
 	    	info.setNextRequestTime(info.getNextRequestTime() + info.crawlDelayFor555());
-	    	// TODO put info back in
+	    	binding.objectToData(info, data);
+	    	cursor.putCurrent(data);
 	    	cursor.close();
 	    	return info.getNextRequestTime();
 	    } else {
@@ -166,8 +171,12 @@ public class DBWrapper {
 	}
 	
 	public static Site popWriteToFileQueue() {
+		Database db = writeToFileQueue.getDatabase();
+		Cursor cursor = db.openCursor(null, null);
+		
 		EntityCursor<Site> cursor = writeToFileQueue.entities();
 		Site site = cursor.next(LockMode.RMW);
+		cursor.close();
 		return site;
 	}
 	
