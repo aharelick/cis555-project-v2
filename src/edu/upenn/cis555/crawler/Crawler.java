@@ -86,8 +86,8 @@ public class Crawler {
 		System.out.println("Listening on port " + portNumber);
 		
 		//Create pool of workers that handle requests
-		Thread[] reqWorkerPool = new Thread[200];
-		for (int i = 0; i < 200; i++) {	
+		Thread[] reqWorkerPool = new Thread[0];
+		for (int i = 0; i < 0; i++) {	
 			reqWorkerPool[i] = new Thread(new RequestWorkerRunnable());
 			reqWorkerPool[i].start();	
 		}
@@ -592,7 +592,10 @@ public class Crawler {
 	 */
 	private static void sendURLsToNodes(LinkedList<String>[] urls) {
 		for (int i = 0; i < IPaddresses.size(); i++) {
-			try {
+			for (String url : urls[i]) {
+				requestToAddToHead(url);
+			}
+		/*	try {
 				Socket socket = 
 						new Socket(IPaddresses.get(i).getHost(), portNumber);
 				OutputStream out = socket.getOutputStream();
@@ -607,10 +610,10 @@ public class Crawler {
 				out.write(output.getBytes());
 				out.flush();
 				out.close();
-				socket.close();
+				socket.close(); 
 			} catch(Exception e) {
 				System.out.println(e);
-			} 
+			} */
 		}	
 	}
 	
