@@ -85,12 +85,12 @@ public class Crawler {
 		System.out.println("Listening on port " + portNumber);
 		
 		//Create pool of workers that handle requests
-		Thread[] reqWorkerPool = new Thread[25];
-		for (int i = 0; i < 25; i++) {	
+		Thread[] reqWorkerPool = new Thread[3];
+		for (int i = 0; i < 3; i++) {	
 			reqWorkerPool[i] = new Thread(new RequestWorkerRunnable());
 			reqWorkerPool[i].start();	
 		}
-		
+		requestToStartCrawler();
 		//add a shutdown hook to properly close DB
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			public void run() {
@@ -279,17 +279,25 @@ public class Crawler {
 		URLConnection connect = null;
 		//the host has never been seen before, so need to fetch robots.txt
 		if (robots == null) {
+			URL robotsURL = null;
+			try {
+				robotsURL = new URL(protocol + "://" + 
+							siteURL.getHost() + "/robots.txt");
+			} catch (MalformedURLException e1) {
+				e1.printStackTrace();
+				return;
+			}
 			System.out.println("Fetching robots.txt for: " + siteURL.getHost());
 			int responseCode = 0;
 			if (protocol.equals("http")) {
-				connect = http(siteURL, "GET");
+				connect = http(robotsURL, "GET");
 				try {
 					responseCode = ((HttpURLConnection) connect).getResponseCode();
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
 			} else if (protocol.equals("https")) {
-				connect = https(siteURL, "GET");
+				connect = https(robotsURL, "GET");
 				try {
 					responseCode = ((HttpsURLConnection) connect).getResponseCode();
 				} catch (IOException e) {
@@ -312,9 +320,11 @@ public class Crawler {
 			DBWrapper.putHostInfo(robots);
 			//put the URL back on the head queue with updated next crawl time
 			url.setNextRequestTime(nextCrawlTime);
+			System.out.println(System.currentTimeMillis() + " : " + nextCrawlTime);
 			DBWrapper.putToHeadQueue(url);
 			
 		} else { //host already seen, proceed with head
+			System.out.println("second time around");
 			if (robots.disallowedLinkFor555(url.getSite())) {
 				System.out.println("Disallowed link: " + url.getSite());
 				return;
@@ -361,6 +371,7 @@ public class Crawler {
 				return;	
 			//200 OK, get content type and length and send to GET queue
 			} else if (responseCode == 200) {
+				System.out.println("200");
 				contentType = connect.getContentType();
 				url.setContentType(contentType);
 				contentLength = connect.getContentLength();
@@ -373,6 +384,7 @@ public class Crawler {
 				}
 				//update crawl time and put to GET queue
 				url.setNextRequestTime(robots.getNextRequestTime());
+				System.out.println("putting on get queue");
 				DBWrapper.putToGetQueue(url);
 			}
 		}
@@ -385,6 +397,7 @@ public class Crawler {
 	 */
 	static void processGet(Site url) {
 		//Send a GET request to the given URL
+		System.out.println("in the get queue");
 		String body = null;
 		String protocol = "";
 		URL siteURL = null;
@@ -639,7 +652,7 @@ public class Crawler {
 				}
 				//should be at start of body
 				while (line != null) {
-					System.out.println(line);
+					System.out.println("The body line is: " + line);
 					line = in.readLine();
 					requestToAddToHead(line.trim());	
 				}
@@ -656,16 +669,16 @@ public class Crawler {
 	 */
 	private static void requestToStartCrawler() {
 		//Create thread pools used in the crawler
-		Thread[] headPool = new Thread[50];
-		Thread[] getPool = new Thread[50];
-		Thread[] fileWritingPool = new Thread[50];
-		for (int i = 0; i < 50; i++) {
+		Thread[] headPool = new Thread[3];
+		Thread[] getPool = new Thread[3];
+		Thread[] fileWritingPool = new Thread[3];
+		for (int i = 0; i < 3; i++) {
 			headPool[i] = new Thread(new HeadThreadRunnable());
 			headPool[i].start();
 			getPool[i] = new Thread(new GetThreadRunnable());
 			getPool[i].start();	
-			fileWritingPool[i] = new Thread(new FileWriterThreadRunnable());
-			fileWritingPool[i].start();
+		//	fileWritingPool[i] = new Thread(new FileWriterThreadRunnable());
+		//	fileWritingPool[i].start();
 		}	
 		//initialize the timer task for writing to S3	
 		TimerTask s3WritingTask = new S3WritingTask();
@@ -677,7 +690,7 @@ public class Crawler {
 		TimerTask batchUploadTask = new BatchUploadTask();
 		Timer batchUpload = new Timer(true);
 		//wait 10 seconds to start, check size every 10 seconds
-		batchUpload.scheduleAtFixedRate(batchUploadTask, 10000, 10000);
+		batchUpload.scheduleAtFixedRate(batchUploadTask, 1000, 1000);
 	}
 	
 	/**
@@ -692,10 +705,14 @@ public class Crawler {
 		getQueue.shutdown();
 	}
 	
+	/**
+	 * This function is called to clear the queues but does not shutdown the 
+	 * crawler.
+	 */
 	private static void requestToClearQueues() {
 		System.out.println("Clearing queue of links from previous crawl");
-		
-	//TODO 
+		DBWrapper.clearGetQueue();
+		DBWrapper.clearHeadQueue();
 	}
 	
 	/**

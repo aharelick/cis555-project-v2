@@ -74,7 +74,6 @@ public class DBWrapper {
 			Site entity;
 			while ((entity = cursor.next(LockMode.RMW)) != null) {
 				sites.add(entity);
-				System.out.println(entity.getSite());
 				cursor.delete();
 				if (sites.size() == count) {
 					break;
@@ -87,6 +86,7 @@ public class DBWrapper {
 	}
 	
 	public static void putToHeadQueue(Site site) {
+		System.out.println("adding " + site.getSite() + "to queue");
 		headQueue.put(site);
 	}
 	
