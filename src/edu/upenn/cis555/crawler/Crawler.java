@@ -86,8 +86,8 @@ public class Crawler {
 		System.out.println("Listening on port " + portNumber);
 		
 		//Create pool of workers that handle requests
-		Thread[] reqWorkerPool = new Thread[100];
-		for (int i = 0; i < 100; i++) {	
+		Thread[] reqWorkerPool = new Thread[200];
+		for (int i = 0; i < 200; i++) {	
 			reqWorkerPool[i] = new Thread(new RequestWorkerRunnable());
 			reqWorkerPool[i].start();	
 		}
@@ -727,7 +727,7 @@ public class Crawler {
 		TimerTask s3WritingTask = new S3WritingTask();
 		Timer s3Handler = new Timer(true);
 		//wait 20 minutes to start, try every 20 minutes
-		s3Handler.scheduleAtFixedRate(s3WritingTask, 150000, 150000);
+		s3Handler.scheduleAtFixedRate(s3WritingTask, 1200000, 1200000);
 		
 		//initialize the timer task for buffering into the queue	
 		TimerTask batchUploadTask = new BatchUploadTask();
