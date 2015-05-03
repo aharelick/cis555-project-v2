@@ -70,7 +70,8 @@ public class Crawler {
 		}
 		//add the list of URLs to the beginning of the HeadQueue
 		for (String url : args[0].split(",")) {
-			DBWrapper.putToHeadQueue(new Site(url, System.currentTimeMillis()));
+			//DBWrapper.putToHeadQueue(new Site(url, System.currentTimeMillis()));
+			headQueue.enqueue(new Site(url, System.currentTimeMillis()));
 		}
 			
 		//set the directory for logging and initialize the FileWriter to S3
@@ -85,8 +86,8 @@ public class Crawler {
 		System.out.println("Listening on port " + portNumber);
 		
 		//Create pool of workers that handle requests
-		Thread[] reqWorkerPool = new Thread[1];
-		for (int i = 0; i < 1; i++) {	
+		Thread[] reqWorkerPool = new Thread[50];
+		for (int i = 0; i < 50; i++) {	
 			reqWorkerPool[i] = new Thread(new RequestWorkerRunnable());
 			reqWorkerPool[i].start();	
 		}
@@ -331,7 +332,11 @@ public class Crawler {
 			DBWrapper.putHostInfo(robots);
 			//put the URL back on the head queue with updated next crawl time
 			url.setNextRequestTime(nextCrawlTime);
-			DBWrapper.putToHeadQueue(url);
+			if (headQueue.queueSize > 5000) {
+				DBWrapper.putToHeadQueue(url);
+			} else {
+				headQueue.enqueue(url);
+			}
 			
 		} else { //host already seen, proceed with head
 			System.out.println("Robots already downloaded, proceed with HEAD");
@@ -395,7 +400,11 @@ public class Crawler {
 				long nextCrawlTime = robots.getNextRequestTime();
 				url.setNextRequestTime(nextCrawlTime);
 				System.out.println("Putting onto GET from end of HEAD");
-				DBWrapper.putToGetQueue(url);
+				if (getQueue.queueSize > 5000) {
+					DBWrapper.putToGetQueue(url);
+				} else {
+					getQueue.enqueue(url);
+				}
 			}
 		}
 	}
@@ -661,12 +670,12 @@ public class Crawler {
 			} else if (path.equals("/urls")) {
 				//parse through the head
 				while(!line.equals("")) {
-					System.out.println(line);
+			//		System.out.println(line);
 					line = in.readLine();
 				}
 				//should be at start of body
 				while ((line = in.readLine()) != null) {
-					System.out.println("The body line is: " + line);
+			//		System.out.println("The body line is: " + line);
 					requestToAddToHead(line.trim());	
 				}
 			}		
@@ -682,10 +691,10 @@ public class Crawler {
 	 */
 	private static void requestToStartCrawler() {
 		//Create thread pools used in the crawler
-		Thread[] headPool = new Thread[3];
-		Thread[] getPool = new Thread[3];
-		Thread[] fileWritingPool = new Thread[3];
-		for (int i = 0; i < 3; i++) {
+		Thread[] headPool = new Thread[100];
+		Thread[] getPool = new Thread[100];
+		Thread[] fileWritingPool = new Thread[100];
+		for (int i = 0; i < 100; i++) {
 			headPool[i] = new Thread(new HeadThreadRunnable());
 			headPool[i].start();
 			getPool[i] = new Thread(new GetThreadRunnable());
@@ -697,7 +706,7 @@ public class Crawler {
 		TimerTask s3WritingTask = new S3WritingTask();
 		Timer s3Handler = new Timer(true);
 		//wait 20 minutes to start, try every 20 minutes
-		s3Handler.scheduleAtFixedRate(s3WritingTask, 1200000, 1200000);
+		s3Handler.scheduleAtFixedRate(s3WritingTask, 150000, 150000);
 		
 		//initialize the timer task for buffering into the queue	
 		TimerTask batchUploadTask = new BatchUploadTask();
@@ -737,8 +746,13 @@ public class Crawler {
 		 if (DBWrapper.getCrawledSite(url) == null) {
 			//add to the head with the appropriate crawl delay
 			 try {
+				 if (headQueue.queueSize > 5000) {
 				DBWrapper.putToHeadQueue(new Site(url,
 						DBWrapper.updateNextRequestTime(new URL(url).getHost())));
+				 } else {
+					 headQueue.enqueue(new Site(url,
+						DBWrapper.updateNextRequestTime(new URL(url).getHost())));
+				 }
 			} catch (MalformedURLException e) {
 				e.printStackTrace();
 			}

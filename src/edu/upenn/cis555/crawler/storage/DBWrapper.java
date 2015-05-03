@@ -140,7 +140,7 @@ public class DBWrapper {
 		return hostInfo.get(host);
 	}
 	
-	public static long updateNextRequestTime(String host) {
+	public synchronized static long updateNextRequestTime(String host) {
 		Database db = hostInfo.getDatabase();
     	EntityBinding<HostInfo> binding = hostInfo.getEntityBinding();
     	EntryBinding<String> keybinding = hostInfo.getKeyBinding();
