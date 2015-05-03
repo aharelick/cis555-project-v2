@@ -180,11 +180,13 @@ public class Crawler {
 					}
 					continue;
 				}
+				System.out.println("writing doc: " + writeMe.getSite());
 				//then process the file by writing it to the S3 file
 				String docLine = S3FileWriter.prepareFileLineDoc(
 						writeMe.getSite(), writeMe.getBody());
 				String urlLine = S3FileWriter.prepareFileLineUrlList(
 						writeMe.getSite(), writeMe.getChildren());
+				System.out.println(docLine);
 				S3FileWriter.writeToDocFile(docLine);
 				S3FileWriter.writeToUrlFile(urlLine);
     		}

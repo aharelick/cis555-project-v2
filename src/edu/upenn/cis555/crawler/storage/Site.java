@@ -6,7 +6,7 @@ import com.sleepycat.persist.model.Entity;
 import com.sleepycat.persist.model.PrimaryKey;
 
 @Entity
-public class Site {
+public class Site implements Comparable<Site> {
 
 	@PrimaryKey
 	private String url;
@@ -67,6 +67,17 @@ public class Site {
 	 */
 	public long canCrawl() {
 		return nextRequestTime - System.currentTimeMillis();
+	}
+
+	@Override
+	public int compareTo(Site arg0) {
+		if (this.nextRequestTime < arg0.nextRequestTime) {
+			return -1;
+		} else if (this.nextRequestTime > arg0.nextRequestTime) {
+			return 1;
+		} else {
+			return 0;
+		}
 	}
 
 }

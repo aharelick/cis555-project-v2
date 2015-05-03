@@ -186,7 +186,9 @@ public class DBWrapper {
 		synchronized (writeToFileQueue) {
 			EntityCursor<Site> cursor = writeToFileQueue.entities();
 			site = cursor.next(LockMode.RMW);
-			cursor.delete();
+			if (site != null) {
+				cursor.delete();
+			}	
 			cursor.close();
 		}
 		return site;

@@ -44,6 +44,7 @@ public class S3FileWriter {
 	public static synchronized void writeToDocFile(String line) {
 		try {
 			docWriter.append(line);
+			docWriter.flush();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -52,6 +53,7 @@ public class S3FileWriter {
 	public static synchronized void writeToUrlFile(String line) {
 		try {
 			urlWriter.append(line);
+			urlWriter.flush();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
