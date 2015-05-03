@@ -125,7 +125,7 @@ public class DBWrapper {
 		getQueue.delete(url);
 	}
 	
-	public static HostInfo getHostInfo(String host) {
+	public static long updateNextRequestTime(String host) {
 		Database db = hostInfo.getDatabase();
     	EntityBinding<HostInfo> binding = hostInfo.getEntityBinding();
     	EntryBinding<String> keybinding = hostInfo.getKeyBinding();
@@ -135,11 +135,13 @@ public class DBWrapper {
 	    DatabaseEntry data = new DatabaseEntry();
 	    if (cursor.getSearchKey(key, data, LockMode.RMW) == OperationStatus.SUCCESS) {
 	    	HostInfo info = binding.entryToObject(key, data);
+	    	info.setNextRequestTime(info.getNextRequestTime() + info.crawlDelayFor555());
+	    	// TODO put info back in
 	    	cursor.close();
-	    	return info;
+	    	return info.getNextRequestTime();
 	    } else {
 	    	cursor.close();
-	    	return null;
+	    	return 0;
 	    }
 	}
 	

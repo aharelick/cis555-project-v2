@@ -187,6 +187,21 @@ public class Crawler {
 	}
 	
 	/**
+	 * Timer task that uploads URLs from the DB to the local memory version
+	 * of the priority queues.
+	 */
+	static class BatchUploadTask extends TimerTask {		
+		public void run() {
+			if (headQueue.queueSize < 5000) {
+				LinkedList<Site> list = DBWrapper.batchPullFromHead(1000);
+				for (Site s : list) {
+					headQueue.enqueue(s);
+				}
+			}
+		}
+	}
+	
+	/**
 	 * The Listener Thread is a daemon that listens for the administrator to
 	 * start/stop/clear the queues or for other worker nodes sending a request
 	 * to add a URL to the queue.
@@ -461,13 +476,21 @@ public class Crawler {
 	//TODO 
 	}
 	
+	/**
+	 * Takes in a String url, called from the parseRequest function, and 
+	 * adds it to the headQueue if it has not yet been seen.
+	 */
 	private static void requestToAddToHead(String url) {
 		//need to make sure never in the crawled database
 		 if (DBWrapper.getCrawledSite(url) == null) {
-			//TODO add to the head with the appropriate crawl delay
-		 }
-			
-		 
+			//add to the head with the appropriate crawl delay
+			 try {
+				DBWrapper.putToHeadQueue(new Site(url,
+						DBWrapper.updateNextRequestTime(new URL(url).getHost())));
+			} catch (MalformedURLException e) {
+				e.printStackTrace();
+			}
+		 }		 
 	}
 	
 	/**
@@ -502,7 +525,5 @@ public class Crawler {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-	}
-	
-	
+	}	
 }

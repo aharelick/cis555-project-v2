@@ -42,6 +42,10 @@ public class HostInfo {
 		nextRequestTime = time;
 	}
 	
+	public long getNextRequestTime() {
+		return nextRequestTime;
+	}
+	
 	public void addDisallowedLink(String key, String value){
 		if(!disallowedLinks.containsKey(key)){
 			ArrayList<String> temp = new ArrayList<String>();
