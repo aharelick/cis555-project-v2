@@ -27,6 +27,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
 import edu.upenn.cis555.crawler.storage.DBWrapper;
+import edu.upenn.cis555.crawler.storage.HostInfo;
 import edu.upenn.cis555.crawler.storage.S3FileWriter;
 import edu.upenn.cis555.crawler.storage.Site;
 import edu.upenn.cis555.crawler.storage.SiteBare;
@@ -84,12 +85,12 @@ public class Crawler {
 		System.out.println("Listening on port " + portNumber);
 		
 		//Create pool of workers that handle requests
-		Thread[] reqWorkerPool = new Thread[25];
-		for (int i = 0; i < 25; i++) {	
+		Thread[] reqWorkerPool = new Thread[3];
+		for (int i = 0; i < 3; i++) {	
 			reqWorkerPool[i] = new Thread(new RequestWorkerRunnable());
 			reqWorkerPool[i].start();	
 		}
-		
+		requestToStartCrawler();
 		//add a shutdown hook to properly close DB
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			public void run() {
@@ -259,15 +260,144 @@ public class Crawler {
     }
 	
 	//======================HEAD and GET FUNCTIONS==============================
+	/**
+	 * The main function for handling the first half of the crawl. Checks for 
+	 * a robots.txt file, obeys it/fetches it, parses it, and/or sends a HEAD
+	 * request to the site and adds to GET queue
+	 */
 	static void processHead(Site url) {	
 		//need to check if the url's host already has a robots.txt in the DB
-		
-		
-		//need to set the contentType of the URL!!!
+		URL siteURL = null;
+		try {
+			siteURL = new URL(url.getSite());
+		} catch (MalformedURLException e1) {
+			e1.printStackTrace();
+		}
+		if (siteURL == null) { return; }
+		String protocol = siteURL.getProtocol();
+		HostInfo robots = DBWrapper.getHostInfo(siteURL.getHost());
+		URLConnection connect = null;
+		//the host has never been seen before, so need to fetch robots.txt
+		if (robots == null) {
+			URL robotsURL = null;
+			try {
+				robotsURL = new URL(protocol + "://" + 
+							siteURL.getHost() + "/robots.txt");
+			} catch (MalformedURLException e1) {
+				e1.printStackTrace();
+				return;
+			}
+			System.out.println("Fetching robots.txt for: " + siteURL.getHost());
+			int responseCode = 0;
+			if (protocol.equals("http")) {
+				connect = http(robotsURL, "GET");
+				try {
+					responseCode = ((HttpURLConnection) connect).getResponseCode();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			} else if (protocol.equals("https")) {
+				connect = https(robotsURL, "GET");
+				try {
+					responseCode = ((HttpsURLConnection) connect).getResponseCode();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+			String body;
+			if (responseCode == 200) {
+				body = inputStreamToString(connect);
+				robots = parseRobots(body);
+			} else {
+				//TODO handle 301, 302, 304, 307
+				robots = new HostInfo();
+			}
+			robots.setHostname(siteURL.getHost());
+			long nextCrawlTime = System.currentTimeMillis() 
+					+ robots.crawlDelayFor555()*1000;
+			robots.setNextRequestTime(nextCrawlTime);
+			//add the new robots.txt info to the database
+			DBWrapper.putHostInfo(robots);
+			//put the URL back on the head queue with updated next crawl time
+			url.setNextRequestTime(nextCrawlTime);
+			System.out.println(System.currentTimeMillis() + " : " + nextCrawlTime);
+			DBWrapper.putToHeadQueue(url);
+			
+		} else { //host already seen, proceed with head
+			System.out.println("second time around");
+			if (robots.disallowedLinkFor555(url.getSite())) {
+				System.out.println("Disallowed link: " + url.getSite());
+				return;
+			}
+			//send the HEAD request
+			if (protocol.equals("http")) {
+				connect = http(siteURL, "HEAD");
+			} else if (protocol.equals("https")){
+				connect = https(siteURL, "HEAD");
+			}
+			//handle the response code
+			int responseCode = 0;
+			String contentType;
+			int contentLength;
+			String redirect = null;
+			
+			if (protocol.equals("http")) {
+				try {
+					responseCode = ((HttpURLConnection) connect).getResponseCode();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				redirect = connect.getHeaderField("Location");
+			} else if (protocol.equals("https")){
+				try {
+					responseCode = ((HttpsURLConnection) connect).getResponseCode();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				redirect = connect.getHeaderField("Location");
+			}
+			
+			//interpret the code appropriately
+			if (responseCode == 301 || responseCode == 307 ||
+					responseCode == 302) {	
+				//redirect and add to head queue if good url
+				URLWrapper redir = new URLWrapper(redirect, null, null, null);
+				if (redir.isGoodURL()) {
+					System.out.println("Redirecting to: " + redirect);
+					Site redSite = new Site(redir.getURL().toString(),
+							robots.getNextRequestTime());
+					DBWrapper.putToHeadQueue(redSite);
+				}		
+				return;	
+			//200 OK, get content type and length and send to GET queue
+			} else if (responseCode == 200) {
+				System.out.println("200");
+				contentType = connect.getContentType();
+				url.setContentType(contentType);
+				contentLength = connect.getContentLength();
+				if (contentType == null) {
+					return;
+				}
+				// content length
+				if (contentLength > maxFileSize) {
+					return;
+				}
+				//update crawl time and put to GET queue
+				url.setNextRequestTime(robots.getNextRequestTime());
+				System.out.println("putting on get queue");
+				DBWrapper.putToGetQueue(url);
+			}
+		}
 	}
 	
+	/**
+	 * The main function for processing the second half of the crawl. Sends a 
+	 * GET request to the given URL, parses the body if HTML, and extracts links
+	 * that are then added back to the head queue.
+	 */
 	static void processGet(Site url) {
 		//Send a GET request to the given URL
+		System.out.println("in the get queue");
 		String body = null;
 		String protocol = "";
 		URL siteURL = null;
@@ -443,6 +573,95 @@ public class Crawler {
 		}	
 	}
 	
+	//============================PARSERS======================================
+	/**
+	 * Goes through the robots.txt string document and creates a HostInfo
+	 * class for it. Puts everything in the appropriate hashmaps for easy access.
+	 */
+	private static HostInfo parseRobots(String robots) {
+		HostInfo info = new HostInfo();
+		String[] split = robots.split("\n\n");
+		ArrayList<String> agents = new ArrayList<String>();
+		ArrayList<String> disallow = new ArrayList<String>();
+		ArrayList<String> allow = new ArrayList<String>();
+		String delay = null;
+		ArrayList<String> sitemap = new ArrayList<String>();
+		for (int i = 0; i < split.length; i++) {
+			String [] inner = split[i].split("\n|:");
+			for (int j = 0; j < inner.length; j++) {
+				if (j + 1 >= inner.length) {
+					break;
+				}
+				if (inner[j].toLowerCase().trim().equals("user-agent")) {
+					agents.add(inner[j + 1].trim());
+				} else if (inner[j].toLowerCase().trim().equals("disallow")) {
+					disallow.add(inner[j + 1].trim());
+				} else if (inner[j].toLowerCase().trim().equals("allow")) {
+					allow.add(inner[j + 1].trim());
+				} else if (inner[j].toLowerCase().trim().equals("crawl-delay")) {
+					delay = inner[j + 1].trim() ;
+				} else if (inner[j].toLowerCase().trim().equals("sitemap")) {
+					sitemap.add(inner[j + 1].trim());
+				}
+			}
+			for (String agent : agents) {
+				info.addUserAgent(agent);
+				for (String link : disallow) {
+					info.addDisallowedLink(agent, link);
+				}
+				for (String link : allow) {
+					info.addAllowedLink(agent, link);
+				}
+				if (delay != null) {
+					info.addCrawlDelay(agent, Integer.parseInt(delay));
+				}
+				for (String link : sitemap) {
+					info.addSitemapLink(link);
+				}
+			}
+			agents.clear();
+			disallow.clear();
+			allow.clear();
+			sitemap.clear();
+			delay = null;
+		}
+		return info;
+	}
+	
+	/**
+	 * Parses the request picked off the queue by the request worker thread.
+	 * Either starts, stops, clears the queue, or adds urls to the head
+	 * @param socket
+	 */
+	private static void parseRequest(Socket socket) {
+		try {
+			BufferedReader in = new BufferedReader(
+					new InputStreamReader(socket.getInputStream()));
+			String line = in.readLine();
+			String path = line.split(" ")[1];
+			if (path.equals("/start")) {
+				requestToStartCrawler();
+			} else if (path.equals("/stop")) {
+				requestToShutdownCrawler();
+			} else if (path.equals("/clear")) {
+				requestToClearQueues();
+			} else if (path.equals("/urls")) {
+				//parse through the head
+				while(!line.equals("")) {
+					line = in.readLine();
+				}
+				//should be at start of body
+				while (line != null) {
+					System.out.println("The body line is: " + line);
+					line = in.readLine();
+					requestToAddToHead(line.trim());	
+				}
+			}		
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
 	//========================PRIVATE REQUEST HELPERS==========================
 	/**
 	 * This function is called to start the crawler threads after the main has
@@ -450,16 +669,16 @@ public class Crawler {
 	 */
 	private static void requestToStartCrawler() {
 		//Create thread pools used in the crawler
-		Thread[] headPool = new Thread[50];
-		Thread[] getPool = new Thread[50];
-		Thread[] fileWritingPool = new Thread[50];
-		for (int i = 0; i < 50; i++) {
+		Thread[] headPool = new Thread[3];
+		Thread[] getPool = new Thread[3];
+		Thread[] fileWritingPool = new Thread[3];
+		for (int i = 0; i < 3; i++) {
 			headPool[i] = new Thread(new HeadThreadRunnable());
 			headPool[i].start();
 			getPool[i] = new Thread(new GetThreadRunnable());
 			getPool[i].start();	
-			fileWritingPool[i] = new Thread(new FileWriterThreadRunnable());
-			fileWritingPool[i].start();
+		//	fileWritingPool[i] = new Thread(new FileWriterThreadRunnable());
+		//	fileWritingPool[i].start();
 		}	
 		//initialize the timer task for writing to S3	
 		TimerTask s3WritingTask = new S3WritingTask();
@@ -471,7 +690,7 @@ public class Crawler {
 		TimerTask batchUploadTask = new BatchUploadTask();
 		Timer batchUpload = new Timer(true);
 		//wait 10 seconds to start, check size every 10 seconds
-		batchUpload.scheduleAtFixedRate(batchUploadTask, 10000, 10000);
+		batchUpload.scheduleAtFixedRate(batchUploadTask, 1000, 1000);
 	}
 	
 	/**
@@ -486,9 +705,14 @@ public class Crawler {
 		getQueue.shutdown();
 	}
 	
+	/**
+	 * This function is called to clear the queues but does not shutdown the 
+	 * crawler.
+	 */
 	private static void requestToClearQueues() {
 		System.out.println("Clearing queue of links from previous crawl");
-	//TODO 
+		DBWrapper.clearGetQueue();
+		DBWrapper.clearHeadQueue();
 	}
 	
 	/**
@@ -505,40 +729,8 @@ public class Crawler {
 			} catch (MalformedURLException e) {
 				e.printStackTrace();
 			}
-		 }		 
-	}
-	
-	/**
-	 * Parses the request picked off the queue by the request worker thread.
-	 * Either starts, stops, clears the queue, or adds urls to the head
-	 * @param socket
-	 */
-	private static void parseRequest(Socket socket) {
-		try {
-			BufferedReader in = new BufferedReader(
-					new InputStreamReader(socket.getInputStream()));
-			String line = in.readLine();
-			String path = line.split(" ")[1];
-			if (path.equals("start")) {
-				requestToStartCrawler();
-			} else if (path.equals("stop")) {
-				requestToShutdownCrawler();
-			} else if (path.equals("clear")) {
-				requestToClearQueues();
-			} else if (path.equals("urls")) {
-				//parse through the head
-				while(!line.equals("")) {
-					line = in.readLine();
-				}
-				//should be at start of body
-				while (line != null) {
-					System.out.println(line);
-					line = in.readLine();
-					requestToAddToHead(line.trim());	
-				}
-			}		
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		 }	else {
+			 System.out.println("This site has previously been crawled: " + url);
+		 }
 	}	
 }

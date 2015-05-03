@@ -34,6 +34,10 @@ public class Site {
 		this.contentType = contentType;
 	}
 	
+	public void setNextRequestTime(long nextRequestTime) {
+		this.nextRequestTime = nextRequestTime;
+	}
+	
 	public String getContentType() {
 		return contentType;
 	}
