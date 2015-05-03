@@ -1,17 +1,17 @@
 package edu.upenn.cis555.crawler;
 
-import java.util.LinkedList;
+import java.util.PriorityQueue;
 
 public class BQueue<E> {
 
-	LinkedList<E> queue;
-	final int capacity = 10000; //hard-coded capacity of 10000
+	PriorityQueue<E> queue;
+	final int capacity = 100000; //hard-coded capacity of 100000
 	int queueSize = 0;
 	boolean full = false;	
 	boolean shutdown = false;
 	
 	public BQueue() {
-		queue = new LinkedList<E>();	
+		queue = new PriorityQueue<E>();	
 	}
 	
 	public void enqueue(E req) {

@@ -3,6 +3,7 @@ package edu.upenn.cis555.crawler.storage;
 
 import com.sleepycat.je.Environment;
 import com.sleepycat.persist.EntityStore;
+import com.sleepycat.persist.SecondaryIndex;
 
 /**
  * A shutdown hook that closes the environment and store anytime the program is shutdown
@@ -16,7 +17,6 @@ public class DatabaseShutdownHook extends Thread{
 	private EntityStore crawledStore;
 	private EntityStore fileQueueStore;
 
-	
 
 
 	public DatabaseShutdownHook(Environment env, EntityStore store,

@@ -4,16 +4,19 @@ import java.util.LinkedList;
 
 import com.sleepycat.persist.model.Entity;
 import com.sleepycat.persist.model.PrimaryKey;
+import com.sleepycat.persist.model.Relationship;
+import com.sleepycat.persist.model.SecondaryKey;
 
 @Entity
 public class Site implements Comparable<Site> {
 
 	@PrimaryKey
 	private String url;
+	@SecondaryKey(relate = Relationship.MANY_TO_ONE)
+	private long nextRequestTime;
 	private String contentType;
 	private String body;
 	private LinkedList<String> children;
-	private long nextRequestTime;
 
 	
 	public Site() {
@@ -36,6 +39,10 @@ public class Site implements Comparable<Site> {
 	
 	public void setNextRequestTime(long nextRequestTime) {
 		this.nextRequestTime = nextRequestTime;
+	}
+	
+	public long getNextRequestTime() {
+		return nextRequestTime;
 	}
 	
 	public String getContentType() {

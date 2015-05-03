@@ -3,9 +3,13 @@ package edu.upenn.cis555.crawler.storage;
 import java.io.File;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.SortedMap;
 
 import com.sleepycat.bind.EntityBinding;
 import com.sleepycat.bind.EntryBinding;
+import com.sleepycat.collections.StoredSortedMap;
 import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseEntry;
@@ -16,6 +20,7 @@ import com.sleepycat.je.OperationStatus;
 import com.sleepycat.persist.EntityCursor;
 import com.sleepycat.persist.EntityStore;
 import com.sleepycat.persist.PrimaryIndex;
+import com.sleepycat.persist.SecondaryIndex;
 import com.sleepycat.persist.StoreConfig;
 
 public class DBWrapper {
@@ -29,7 +34,9 @@ public class DBWrapper {
 	
 	
 	private static PrimaryIndex<String, Site> headQueue;
+	private static SecondaryIndex<Long, String, Site> headNextCrawlTime;
 	private static PrimaryIndex<String, Site> getQueue;
+	private static SecondaryIndex<Long, String, Site> getNextCrawlTime;
 	private static PrimaryIndex<String, HostInfo> hostInfo;
 	private static PrimaryIndex<String, SiteBare> crawledSites;
 	private static PrimaryIndex<String, Site> writeToFileQueue;
@@ -59,8 +66,10 @@ public class DBWrapper {
         System.out.println(dir.getAbsolutePath());
         headStore = new EntityStore(myEnv, "headStore", storeConfig);
         headQueue = headStore.getPrimaryIndex(String.class, Site.class);
+        headNextCrawlTime = headStore.getSecondaryIndex(headQueue, Long.class, "nextRequestTime");
         getStore = new EntityStore(myEnv, "getStore", storeConfig);
         getQueue = getStore.getPrimaryIndex(String.class, Site.class);
+        getNextCrawlTime = getStore.getSecondaryIndex(getQueue, Long.class, "nextRequestTime");
         hostStore = new EntityStore(myEnv, "hostStore", storeConfig);
         hostInfo = hostStore.getPrimaryIndex(String.class, HostInfo.class);
         crawledStore = new EntityStore(myEnv, "crawledStore", storeConfig);
@@ -213,6 +222,46 @@ public class DBWrapper {
 		while (cursor.next() != null) {
 			cursor.delete();
 		}
+	}
+	
+	public synchronized static Site popHeadQueue() {
+		/*Site site;
+		synchronized (headNextCrawlTime) {
+			EntityCursor<Site> cursor = headNextCrawlTime.entities();
+			site = cursor.first(LockMode.RMW);
+			if (site != null) {
+				cursor.delete();
+			}
+			cursor.close();
+		}
+		return site; */
+		SortedMap<Long, Site> map = headNextCrawlTime.sortedMap();
+		if (map.isEmpty()) {
+			return null;
+		}
+		Site site = map.get(map.firstKey());
+		headQueue.delete(site.getSite());
+		return site;
+	}
+	
+	public synchronized static Site popGetQueue() {
+		/*Site site;
+		synchronized (getNextCrawlTime) {
+			EntityCursor<Site> cursor = getNextCrawlTime.entities();
+			site = cursor.first(LockMode.RMW);
+			if (site != null) {
+				cursor.delete();
+			}
+			cursor.close();
+		}
+		return site; */
+		SortedMap<Long, Site> map = getNextCrawlTime.sortedMap();
+		if (map.isEmpty()) {
+			return null;
+		}
+		Site site = map.get(map.firstKey());
+		getQueue.delete(site.getSite());
+		return site;
 	}
 
 	public static void sync() {

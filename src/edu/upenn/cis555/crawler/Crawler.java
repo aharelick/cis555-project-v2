@@ -70,8 +70,8 @@ public class Crawler {
 		}
 		//add the list of URLs to the beginning of the HeadQueue
 		for (String url : args[0].split(",")) {
-			//DBWrapper.putToHeadQueue(new Site(url, System.currentTimeMillis()));
-			headQueue.enqueue(new Site(url, System.currentTimeMillis()));
+			DBWrapper.putToHeadQueue(new Site(url, System.currentTimeMillis()));
+			//headQueue.enqueue(new Site(url, System.currentTimeMillis()));
 		}
 			
 		//set the directory for logging and initialize the FileWriter to S3
@@ -86,8 +86,8 @@ public class Crawler {
 		System.out.println("Listening on port " + portNumber);
 		
 		//Create pool of workers that handle requests
-		Thread[] reqWorkerPool = new Thread[50];
-		for (int i = 0; i < 50; i++) {	
+		Thread[] reqWorkerPool = new Thread[100];
+		for (int i = 0; i < 100; i++) {	
 			reqWorkerPool[i] = new Thread(new RequestWorkerRunnable());
 			reqWorkerPool[i].start();	
 		}
@@ -111,10 +111,17 @@ public class Crawler {
 	static class HeadThreadRunnable implements Runnable {	
     	public void run() {
     		while (!shutdown) { 
-				Site url = headQueue.dequeue();
+				//Site url = headQueue.dequeue();
+    			Site url = DBWrapper.popHeadQueue();
 				//This line is necessary for the shutdown call, see BQueue.java
         		if (url == null) {
-        			break;
+        			//break;
+        			try {
+						Thread.sleep(2000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+        			continue;
         		}
 				long delay;
 				//Even though at top of priority queue, make sure not in future
@@ -141,10 +148,17 @@ public class Crawler {
 	static class GetThreadRunnable implements Runnable {	
 		public void run() {
 			while (!shutdown) { 
-				Site url = getQueue.dequeue();
+				//Site url = getQueue.dequeue();
+				Site url = DBWrapper.popGetQueue();
 				//This line is necessary for the shutdown call, see BQueue.java
         		if (url == null) {
-        			break;
+        			//break;
+        			try {
+						Thread.sleep(2000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+        			continue;
         		}
 				long delay;
 				//Even though at top of priority queue, make sure not in future
@@ -208,7 +222,7 @@ public class Crawler {
 	 */
 	static class BatchUploadTask extends TimerTask {		
 		public void run() {
-			if (headQueue.queueSize < 5000) {
+			/*if (headQueue.queueSize < 5000) {
 				LinkedList<Site> list = DBWrapper.batchPullFromHead(1000);
 				for (Site s : list) {
 					headQueue.enqueue(s);
@@ -219,7 +233,7 @@ public class Crawler {
 				for (Site s : list) {
 					getQueue.enqueue(s);
 				}
-			}
+			}*/
 		}
 	}
 	
@@ -231,7 +245,7 @@ public class Crawler {
 	static class ListenerRunnable implements Runnable {
 		public void run() {
 			try (
-				ServerSocket serverSocket = new ServerSocket(portNumber, 1000);	
+				ServerSocket serverSocket = new ServerSocket(portNumber, 100000);	
 			) {
 				while (true) {
 					Socket clientSocket = serverSocket.accept();
@@ -332,11 +346,13 @@ public class Crawler {
 			DBWrapper.putHostInfo(robots);
 			//put the URL back on the head queue with updated next crawl time
 			url.setNextRequestTime(nextCrawlTime);
-			if (headQueue.queueSize > 5000) {
+			/*if (headQueue.queueSize > 5000) {
 				DBWrapper.putToHeadQueue(url);
-			} else {
+			} else { 
 				headQueue.enqueue(url);
-			}
+			} */
+			DBWrapper.putToHeadQueue(url);
+			
 			
 		} else { //host already seen, proceed with head
 			System.out.println("Robots already downloaded, proceed with HEAD");
@@ -402,11 +418,12 @@ public class Crawler {
 				long nextCrawlTime = robots.getNextRequestTime();
 				url.setNextRequestTime(nextCrawlTime);
 				System.out.println("Putting onto GET from end of HEAD");
-				if (getQueue.queueSize > 5000) {
+				/*if (getQueue.queueSize > 5000) {
 					DBWrapper.putToGetQueue(url);
 				} else {
 					getQueue.enqueue(url);
-				}
+				} */
+				DBWrapper.putToGetQueue(url);
 			}
 		}
 	}
@@ -710,7 +727,7 @@ public class Crawler {
 		TimerTask s3WritingTask = new S3WritingTask();
 		Timer s3Handler = new Timer(true);
 		//wait 20 minutes to start, try every 20 minutes
-		s3Handler.scheduleAtFixedRate(s3WritingTask, 300000, 1200000);
+		s3Handler.scheduleAtFixedRate(s3WritingTask, 150000, 150000);
 		
 		//initialize the timer task for buffering into the queue	
 		TimerTask batchUploadTask = new BatchUploadTask();
@@ -750,13 +767,15 @@ public class Crawler {
 		 if (DBWrapper.getCrawledSite(url) == null) {
 			//add to the head with the appropriate crawl delay
 			 try {
-				 if (headQueue.queueSize > 5000) {
+			/*	 if (headQueue.queueSize > 5000) {
 				DBWrapper.putToHeadQueue(new Site(url,
 						DBWrapper.updateNextRequestTime(new URL(url).getHost())));
 				 } else {
 					 headQueue.enqueue(new Site(url,
 						DBWrapper.updateNextRequestTime(new URL(url).getHost())));
-				 }
+				 } */
+				 DBWrapper.putToHeadQueue(new Site(url,
+						DBWrapper.updateNextRequestTime(new URL(url).getHost())));
 			} catch (MalformedURLException e) {
 				e.printStackTrace();
 			}
