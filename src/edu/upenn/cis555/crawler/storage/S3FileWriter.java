@@ -4,7 +4,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.LinkedList;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.auth.AWSCredentials;
@@ -61,7 +61,7 @@ public class S3FileWriter {
 		return url +  "\t" + doc + "CIS555###Split%%%Document***Line";
 	}
 	
-	public static String prepareFileLineUrlList(String url, ArrayList<String> list) {
+	public static String prepareFileLineUrlList(String url, LinkedList<String> list) {
 		return url +  "\t" + list.toString();
 	}
 	
