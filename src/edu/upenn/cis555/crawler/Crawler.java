@@ -1,13 +1,10 @@
 package edu.upenn.cis555.crawler;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.math.BigInteger;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -20,7 +17,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -170,8 +166,15 @@ public class Crawler {
 	static class FileWriterThreadRunnable implements Runnable {	
 		public void run() {
 			while (!shutdown) { 
-			//need to pick off file queue from DB (no need to buffer)
+				//need to pick off file queue from DB (no need to buffer)
+				Site writeMe = DBWrapper.popWriteToFileQueue();
 				//then process the file by writing it to the S3 file
+				String docLine = S3FileWriter.prepareFileLineDoc(
+						writeMe.getSite(), writeMe.getBody());
+				String urlLine = S3FileWriter.prepareFileLineUrlList(
+						writeMe.getSite(), writeMe.getChildren());
+				S3FileWriter.writeToDocFile(docLine);
+				S3FileWriter.writeToUrlFile(urlLine);
     		}
 		}
 	}
@@ -196,6 +199,12 @@ public class Crawler {
 				LinkedList<Site> list = DBWrapper.batchPullFromHead(1000);
 				for (Site s : list) {
 					headQueue.enqueue(s);
+				}
+			}		
+			if (getQueue.queueSize < 5000) {
+				LinkedList<Site> list = DBWrapper.batchPullFromGet(1000);
+				for (Site s : list) {
+					getQueue.enqueue(s);
 				}
 			}
 		}
@@ -250,9 +259,9 @@ public class Crawler {
     }
 	
 	//======================HEAD and GET FUNCTIONS==============================
-	static void processHead(Site url) {
-		
+	static void processHead(Site url) {	
 		//need to check if the url's host already has a robots.txt in the DB
+		
 		
 		//need to set the contentType of the URL!!!
 	}
@@ -457,6 +466,12 @@ public class Crawler {
 		Timer s3Handler = new Timer(true);
 		//wait 20 minutes to start, try every 20 minutes
 		s3Handler.scheduleAtFixedRate(s3WritingTask, 1200000, 1200000);
+		
+		//initialize the timer task for buffering into the queue	
+		TimerTask batchUploadTask = new BatchUploadTask();
+		Timer batchUpload = new Timer(true);
+		//wait 10 seconds to start, check size every 10 seconds
+		batchUpload.scheduleAtFixedRate(batchUploadTask, 10000, 10000);
 	}
 	
 	/**
