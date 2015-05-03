@@ -81,12 +81,12 @@ public class DBWrapper {
 			}
 		} finally {
 			cursor.close();
+			sync();
 		}	
 		return sites;
 	}
 	
 	public static void putToHeadQueue(Site site) {
-		System.out.println("adding " + site.getSite() + "to queue");
 		headQueue.put(site);
 	}
 	
@@ -201,7 +201,7 @@ public class DBWrapper {
 	}
 
 	public static void sync() {
-		//store.sync();
+		store.sync();
 	}
 	
 	public static void close() {

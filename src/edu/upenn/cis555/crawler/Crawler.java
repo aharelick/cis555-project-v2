@@ -71,6 +71,7 @@ public class Crawler {
 		//add the list of URLs to the beginning of the HeadQueue
 		for (String url : args[0].split(",")) {
 			DBWrapper.putToHeadQueue(new Site(url, System.currentTimeMillis()));
+			DBWrapper.putToGetQueue(new Site(url, System.currentTimeMillis()));
 		}
 			
 		//set the directory for logging and initialize the FileWriter to S3
@@ -85,8 +86,8 @@ public class Crawler {
 		System.out.println("Listening on port " + portNumber);
 		
 		//Create pool of workers that handle requests
-		Thread[] reqWorkerPool = new Thread[3];
-		for (int i = 0; i < 3; i++) {	
+		Thread[] reqWorkerPool = new Thread[1];
+		for (int i = 0; i < 1; i++) {	
 			reqWorkerPool[i] = new Thread(new RequestWorkerRunnable());
 			reqWorkerPool[i].start();	
 		}
@@ -321,10 +322,10 @@ public class Crawler {
 			//put the URL back on the head queue with updated next crawl time
 			url.setNextRequestTime(nextCrawlTime);
 			System.out.println(System.currentTimeMillis() + " : " + nextCrawlTime);
-			DBWrapper.putToHeadQueue(url);
+			DBWrapper.putToHeadQueue(new Site(url.getSite(), nextCrawlTime));
 			
 		} else { //host already seen, proceed with head
-			System.out.println("second time around");
+			System.out.println("Robots already downloaded, proceed with HEAD");
 			if (robots.disallowedLinkFor555(url.getSite())) {
 				System.out.println("Disallowed link: " + url.getSite());
 				return;
@@ -383,9 +384,10 @@ public class Crawler {
 					return;
 				}
 				//update crawl time and put to GET queue
-				url.setNextRequestTime(robots.getNextRequestTime());
-				System.out.println("putting on get queue");
-				DBWrapper.putToGetQueue(url);
+				long nextCrawlTime = robots.getNextRequestTime();
+				url.setNextRequestTime(nextCrawlTime);
+				System.out.println("Putting onto GET from end of HEAD");
+				DBWrapper.putToGetQueue(new Site(url.getSite(), nextCrawlTime));
 			}
 		}
 	}
@@ -397,7 +399,7 @@ public class Crawler {
 	 */
 	static void processGet(Site url) {
 		//Send a GET request to the given URL
-		System.out.println("in the get queue");
+		System.out.println("Starting the GET process");
 		String body = null;
 		String protocol = "";
 		URL siteURL = null;
@@ -669,10 +671,10 @@ public class Crawler {
 	 */
 	private static void requestToStartCrawler() {
 		//Create thread pools used in the crawler
-		Thread[] headPool = new Thread[3];
-		Thread[] getPool = new Thread[3];
-		Thread[] fileWritingPool = new Thread[3];
-		for (int i = 0; i < 3; i++) {
+		Thread[] headPool = new Thread[1];
+		Thread[] getPool = new Thread[1];
+		Thread[] fileWritingPool = new Thread[1];
+		for (int i = 0; i < 1; i++) {
 			headPool[i] = new Thread(new HeadThreadRunnable());
 			headPool[i].start();
 			getPool[i] = new Thread(new GetThreadRunnable());
@@ -690,7 +692,7 @@ public class Crawler {
 		TimerTask batchUploadTask = new BatchUploadTask();
 		Timer batchUpload = new Timer(true);
 		//wait 10 seconds to start, check size every 10 seconds
-		batchUpload.scheduleAtFixedRate(batchUploadTask, 1000, 1000);
+		batchUpload.scheduleAtFixedRate(batchUploadTask, 5000, 5000);
 	}
 	
 	/**
