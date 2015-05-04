@@ -84,8 +84,8 @@ public class Crawler {
 		System.out.println("Listening on port " + portNumber);
 		
 		//Create pool of workers that handle requests
-		Thread[] reqWorkerPool = new Thread[100];
-		for (int i = 0; i < 100; i++) {	
+		Thread[] reqWorkerPool = new Thread[250];
+		for (int i = 0; i < 250; i++) {	
 			reqWorkerPool[i] = new Thread(new RequestWorkerRunnable());
 			reqWorkerPool[i].start();	
 		}
@@ -687,10 +687,10 @@ public class Crawler {
 	private static void requestToStartCrawler() {
 		//Create thread pools used in the crawler
 
-		Thread[] headPool = new Thread[50];
-		Thread[] getPool = new Thread[50];
-		Thread[] fileWritingPool = new Thread[50];
-		for (int i = 0; i < 50; i++) {
+		Thread[] headPool = new Thread[200];
+		Thread[] getPool = new Thread[200];
+		Thread[] fileWritingPool = new Thread[200];
+		for (int i = 0; i < 200; i++) {
 
 			headPool[i] = new Thread(new HeadThreadRunnable());
 			headPool[i].start();
@@ -702,8 +702,8 @@ public class Crawler {
 		//initialize the timer task for writing to S3	
 		TimerTask s3WritingTask = new S3WritingTask();
 		Timer s3Handler = new Timer(true);
-		//wait 5 minutes to start, try every 5 minutes
-		s3Handler.scheduleAtFixedRate(s3WritingTask, 300000, 300000);
+		//wait 4 minutes to start, try every 4 minutes
+		s3Handler.scheduleAtFixedRate(s3WritingTask, 240000, 240000);
 	}
 	
 	/**
