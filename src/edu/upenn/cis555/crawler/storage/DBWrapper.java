@@ -245,6 +245,22 @@ public class DBWrapper {
 		cursor.close();
 		return site;
 	}
+	
+	public synchronized static Site headPeekQueue() {
+		Site site;
+		EntityCursor<Site> cursor = headNextCrawlTime.entities();
+		site = cursor.first(LockMode.RMW);
+		cursor.close();
+		return site;
+	}
+	
+	public synchronized static Site getPeekQueue() {
+		Site site;
+		EntityCursor<Site> cursor = getNextCrawlTime.entities();
+		site = cursor.first(LockMode.RMW);
+		cursor.close();
+		return site;
+	}
 
 	public static void sync() {
 	//	store.sync();
