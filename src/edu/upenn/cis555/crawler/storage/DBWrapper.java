@@ -246,7 +246,7 @@ public class DBWrapper {
 		return site;
 	}
 	
-	public synchronized static Site headPeekQueue() {
+	public synchronized static Site peekHeadQueue() {
 		Site site;
 		EntityCursor<Site> cursor = headNextCrawlTime.entities();
 		site = cursor.first(LockMode.RMW);
@@ -254,7 +254,7 @@ public class DBWrapper {
 		return site;
 	}
 	
-	public synchronized static Site getPeekQueue() {
+	public synchronized static Site peekGetQueue() {
 		Site site;
 		EntityCursor<Site> cursor = getNextCrawlTime.entities();
 		site = cursor.first(LockMode.RMW);
