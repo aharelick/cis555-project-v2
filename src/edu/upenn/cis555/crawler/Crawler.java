@@ -296,6 +296,9 @@ public class Crawler {
 			int responseCode = 0;
 			if (protocol.equals("http")) {
 				connect = http(robotsURL, "GET");
+				if (connect == null) {
+					return;
+				}	
 				try {
 					responseCode = ((HttpURLConnection) connect).getResponseCode();
 				} catch (IOException e) {
@@ -303,6 +306,9 @@ public class Crawler {
 				}
 			} else if (protocol.equals("https")) {
 				connect = https(robotsURL, "GET");
+				if (connect == null) {
+					return;
+				}
 				try {
 					responseCode = ((HttpsURLConnection) connect).getResponseCode();
 				} catch (IOException e) {
@@ -344,6 +350,9 @@ public class Crawler {
 				connect = http(siteURL, "HEAD");
 			} else if (protocol.equals("https")){
 				connect = https(siteURL, "HEAD");
+			}
+			if (connect == null) {
+				return;
 			}
 			//handle the response code
 			int responseCode = 0;
@@ -573,7 +582,7 @@ public class Crawler {
 				out.write("User-Agent: cis455crawler\r\n".getBytes());
 				String output = "";
 				for (String url : urls[i]) {
-					System.out.println("Node " + i + " is being sent " + url);
+			//		System.out.println("Node " + i + " is being sent " + url);
 					output = output.concat(url + "\r\n");
 				}
 				out.write(("Content-Length: " + output.length() +
@@ -702,8 +711,8 @@ public class Crawler {
 		//initialize the timer task for writing to S3	
 		TimerTask s3WritingTask = new S3WritingTask();
 		Timer s3Handler = new Timer(true);
-		//wait 4 minutes to start, try every 4 minutes
-		s3Handler.scheduleAtFixedRate(s3WritingTask, 240000, 240000);
+		//wait 1 minutes to start, try every 1 minutes
+		s3Handler.scheduleAtFixedRate(s3WritingTask, 60000, 60000);
 	}
 	
 	/**
