@@ -16,6 +16,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -38,8 +39,6 @@ public class Crawler {
 	private static long maxFileSize;
 	private static File S3logDirectory;
 	private static boolean shutdown = false;
-	private static BQueue<Site> headQueue = new BQueue<Site>();
-	private static BQueue<Site> getQueue = new BQueue<Site>();
 	private static BQueue<Socket> requestQueue = new BQueue<Socket>();
 	
 	/**
@@ -71,7 +70,6 @@ public class Crawler {
 		//add the list of URLs to the beginning of the HeadQueue
 		for (String url : args[0].split(",")) {
 			DBWrapper.putToHeadQueue(new Site(url, System.currentTimeMillis()));
-			//headQueue.enqueue(new Site(url, System.currentTimeMillis()));
 		}
 			
 		//set the directory for logging and initialize the FileWriter to S3
@@ -86,8 +84,8 @@ public class Crawler {
 		System.out.println("Listening on port " + portNumber);
 		
 		//Create pool of workers that handle requests
-		Thread[] reqWorkerPool = new Thread[1];
-		for (int i = 0; i < 1; i++) {	
+		Thread[] reqWorkerPool = new Thread[100];
+		for (int i = 0; i < 100; i++) {	
 			reqWorkerPool[i] = new Thread(new RequestWorkerRunnable());
 			reqWorkerPool[i].start();	
 		}
@@ -111,14 +109,11 @@ public class Crawler {
 	static class HeadThreadRunnable implements Runnable {	
     	public void run() {
     		while (!shutdown) { 
-				//Site url = headQueue.dequeue();
-    			Site url = DBWrapper.popHeadQueue();
-				//This line is necessary for the shutdown call, see BQueue.java
+    			Site url = DBWrapper.conditionalPopHeadQueue();
         		if (url == null) {
-        			//break;
         			try {
 						Thread.sleep(2000);
-        				System.out.println("HEAD queue EMPTY===================");
+        				System.out.println("HEAD: nothing ready to be taken");
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
@@ -152,13 +147,10 @@ public class Crawler {
 	static class GetThreadRunnable implements Runnable {	
 		public void run() {
 			while (!shutdown) { 
-				//Site url = getQueue.dequeue();
-				Site url = DBWrapper.popGetQueue();
-				//This line is necessary for the shutdown call, see BQueue.java
+				Site url = DBWrapper.conditionalPopGetQueue();
         		if (url == null) {
-        			//break;
         			try {
-        				System.out.println("GET queue EMPTY===================");
+        				System.out.println("GET: nothing ready to be taken");
 						Thread.sleep(2000);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
@@ -221,27 +213,6 @@ public class Crawler {
 	static class S3WritingTask extends TimerTask {		
 		public void run() {
 			S3FileWriter.switchFileAndWriteToS3(S3logDirectory);		
-		}
-	}
-	
-	/**
-	 * Timer task that uploads URLs from the DB to the local memory version
-	 * of the priority queues.
-	 */
-	static class BatchUploadTask extends TimerTask {		
-		public void run() {
-			if (headQueue.queueSize < 5000) {
-				LinkedList<Site> list = DBWrapper.batchPullFromHead(1000);
-				for (Site s : list) {
-					headQueue.enqueue(s);
-				}
-			}		
-			if (getQueue.queueSize < 5000) {
-				LinkedList<Site> list = DBWrapper.batchPullFromGet(1000);
-				for (Site s : list) {
-					getQueue.enqueue(s);
-				}
-			}
 		}
 	}
 	
@@ -491,10 +462,7 @@ public class Crawler {
 			crawled.setContentType("text/html");
 			crawled.setBody(body);
 			crawled.setChildren(children);
-			DBWrapper.putWriteToFileQueue(crawled);
-			
-			//add this URL to the list of crawled URLs
-			DBWrapper.putCrawledSite(new SiteBare(url.getSite()));		
+			DBWrapper.putWriteToFileQueue(crawled);	
 			return;
 		} else {
 			return;
@@ -681,6 +649,7 @@ public class Crawler {
 	 * @param socket
 	 */
 	private static void parseRequest(Socket socket) {
+		HashSet<String> duplicateURLs = new HashSet<String>();
 		try {
 			BufferedReader in = new BufferedReader(
 					new InputStreamReader(socket.getInputStream()));
@@ -695,13 +664,14 @@ public class Crawler {
 			} else if (path.equals("/urls")) {
 				//parse through the head
 				while(!line.equals("")) {
-			//		System.out.println(line);
 					line = in.readLine();
 				}
 				//should be at start of body
 				while ((line = in.readLine()) != null) {
-			//		System.out.println("The body line is: " + line);
-					requestToAddToHead(line.trim());	
+					if (!duplicateURLs.contains(line.trim())) {
+						requestToAddToHead(line.trim());
+						duplicateURLs.add(line.trim());
+					}
 				}
 			}		
 		} catch (IOException e) {
@@ -717,10 +687,10 @@ public class Crawler {
 	private static void requestToStartCrawler() {
 		//Create thread pools used in the crawler
 
-		Thread[] headPool = new Thread[1];
-		Thread[] getPool = new Thread[1];
-		Thread[] fileWritingPool = new Thread[1];
-		for (int i = 0; i < 1; i++) {
+		Thread[] headPool = new Thread[50];
+		Thread[] getPool = new Thread[50];
+		Thread[] fileWritingPool = new Thread[50];
+		for (int i = 0; i < 50; i++) {
 
 			headPool[i] = new Thread(new HeadThreadRunnable());
 			headPool[i].start();
@@ -732,14 +702,8 @@ public class Crawler {
 		//initialize the timer task for writing to S3	
 		TimerTask s3WritingTask = new S3WritingTask();
 		Timer s3Handler = new Timer(true);
-		//wait 20 minutes to start, try every 20 minutes
-		s3Handler.scheduleAtFixedRate(s3WritingTask, 1200000, 1200000);
-		
-		//initialize the timer task for buffering into the queue	
-		TimerTask batchUploadTask = new BatchUploadTask();
-		Timer batchUpload = new Timer(true);
-		//wait 10 seconds to start, check size every 10 seconds
-		batchUpload.scheduleAtFixedRate(batchUploadTask, 3000, 3000);
+		//wait 5 minutes to start, try every 5 minutes
+		s3Handler.scheduleAtFixedRate(s3WritingTask, 300000, 300000);
 	}
 	
 	/**
@@ -750,8 +714,6 @@ public class Crawler {
 		System.out.println("Shutting down the crawler.");
 		shutdown = true;
 		requestQueue.shutdown();
-		headQueue.shutdown();
-		getQueue.shutdown();
 	}
 	
 	/**
@@ -771,15 +733,9 @@ public class Crawler {
 	private static void requestToAddToHead(String url) {
 		//need to make sure never in the crawled database
 		 if (DBWrapper.getCrawledSite(url) == null) {
+			 DBWrapper.putCrawledSite(new SiteBare(url));
 			//add to the head with the appropriate crawl delay
 			 try {
-			/*	 if (headQueue.queueSize > 5000) {
-				DBWrapper.putToHeadQueue(new Site(url,
-						DBWrapper.updateNextRequestTime(new URL(url).getHost())));
-				 } else {
-					 headQueue.enqueue(new Site(url,
-						DBWrapper.updateNextRequestTime(new URL(url).getHost())));
-				 } */
 				 long delay = DBWrapper.updateNextRequestTime(new URL(url).getHost());
 				 System.out.println("Request worker is adding " + url);
 				 System.out.println("with a delay of " + (delay - System.currentTimeMillis())/1000);

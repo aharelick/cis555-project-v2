@@ -112,9 +112,9 @@ public class S3FileWriter {
 		Region usStandard = Region.getRegion(Regions.US_EAST_1);
 		s3.setRegion(usStandard);
 
-		String bucketName1 = "hype.engine";
+		String bucketName1 = "mark.test";
 		String key1 = docFileToWrite.getName();
-		String bucketName2 = "hype.engine";
+		String bucketName2 = "mark.test";
 		String key2 = urlFileToWrite.getName();
 
 		System.out.println("===========================================");
