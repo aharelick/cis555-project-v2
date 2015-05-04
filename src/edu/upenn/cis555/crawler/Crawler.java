@@ -86,8 +86,8 @@ public class Crawler {
 		System.out.println("Listening on port " + portNumber);
 		
 		//Create pool of workers that handle requests
-		Thread[] reqWorkerPool = new Thread[0];
-		for (int i = 0; i < 0; i++) {	
+		Thread[] reqWorkerPool = new Thread[1];
+		for (int i = 0; i < 1; i++) {	
 			reqWorkerPool[i] = new Thread(new RequestWorkerRunnable());
 			reqWorkerPool[i].start();	
 		}
@@ -118,6 +118,7 @@ public class Crawler {
         			//break;
         			try {
 						Thread.sleep(2000);
+        				System.out.println("HEAD queue EMPTY===================");
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
@@ -126,15 +127,18 @@ public class Crawler {
 				long delay;
 				//Even though at top of priority queue, make sure not in future
 				if ((delay = url.canCrawl()) < 0) {
+					System.out.println("HEAD starting and not sleeping on: "
+							+ url.getSite());
 					processHead(url);
 				} else {
 					try {
-						System.out.println("Head sleeping for " + delay);
+						System.out.println("HEAD sleeping for " + (double) delay/1000 +
+								" seconds on the site: " + url.getSite());
 						Thread.sleep(delay);
+						processHead(url);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
-					}
-					processHead(url);
+					}	
 				}
     		}
     	}
@@ -154,6 +158,7 @@ public class Crawler {
         		if (url == null) {
         			//break;
         			try {
+        				System.out.println("GET queue EMPTY===================");
 						Thread.sleep(2000);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
@@ -163,15 +168,18 @@ public class Crawler {
 				long delay;
 				//Even though at top of priority queue, make sure not in future
 				if ((delay = url.canCrawl()) < 0) {
-					processGet(url);
+					System.out.println("GET starting and not sleeping on: "
+							+ url.getSite());
+					processGet(url);	
 				} else {
 					try {
-						System.out.println("Get sleeping for " + delay);
+						System.out.println("GET sleeping for " + (double) delay/1000 +
+								" seconds on the site: " + url.getSite());
 						Thread.sleep(delay);
+						processGet(url);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
-					processGet(url);
 				}
     		}
 		}
@@ -222,7 +230,7 @@ public class Crawler {
 	 */
 	static class BatchUploadTask extends TimerTask {		
 		public void run() {
-			/*if (headQueue.queueSize < 5000) {
+			if (headQueue.queueSize < 5000) {
 				LinkedList<Site> list = DBWrapper.batchPullFromHead(1000);
 				for (Site s : list) {
 					headQueue.enqueue(s);
@@ -233,7 +241,7 @@ public class Crawler {
 				for (Site s : list) {
 					getQueue.enqueue(s);
 				}
-			}*/
+			}
 		}
 	}
 	
@@ -355,7 +363,7 @@ public class Crawler {
 			
 			
 		} else { //host already seen, proceed with head
-			System.out.println("Robots already downloaded, proceed with HEAD");
+			System.out.println("Robots already downloaded for " + url.getSite());
 			if (robots.disallowedLinkFor555(url.getSite())) {
 				System.out.println("Disallowed link: " + url.getSite());
 				return;
@@ -417,12 +425,12 @@ public class Crawler {
 				//update crawl time and put to GET queue
 				long nextCrawlTime = robots.getNextRequestTime();
 				url.setNextRequestTime(nextCrawlTime);
-				System.out.println("Putting onto GET from end of HEAD");
 				/*if (getQueue.queueSize > 5000) {
 					DBWrapper.putToGetQueue(url);
 				} else {
 					getQueue.enqueue(url);
 				} */
+				System.out.println("HEAD putting on GET: " + url.getSite());
 				DBWrapper.putToGetQueue(url);
 			}
 		}
@@ -457,7 +465,6 @@ public class Crawler {
 		if (url.getContentType() == null) {
 			return;
 		} else if (url.getContentType().startsWith("text/html")) {
-			System.out.println("correct content type");
 			LinkedList<String>[] nodes = new LinkedList[IPaddresses.size()];
 			//initialize all of the linkedlists
 			for (int i = 0; i < nodes.length; i++) {
@@ -470,11 +477,9 @@ public class Crawler {
 					protocol, siteURL.getHost(), siteURL.getPath());
 				//if we extract a valid URL, hash and send along to correct node
 				if (child.isGoodURL()) {
-					System.out.println(child.getURL().toString());
 					children.add(child.getURL().toString());
 					//get the correct node to send URL to
 					int node = hashRange(child.getURL().getHost());
-					System.out.println(node);
 					nodes[node].add(child.getURL().toString());
 				}		
 			}
@@ -592,10 +597,7 @@ public class Crawler {
 	 */
 	private static void sendURLsToNodes(LinkedList<String>[] urls) {
 		for (int i = 0; i < IPaddresses.size(); i++) {
-			for (String url : urls[i]) {
-				requestToAddToHead(url);
-			}
-		/*	try {
+			try {
 				Socket socket = 
 						new Socket(IPaddresses.get(i).getHost(), portNumber);
 				OutputStream out = socket.getOutputStream();
@@ -603,6 +605,7 @@ public class Crawler {
 				out.write("User-Agent: cis455crawler\r\n".getBytes());
 				String output = "";
 				for (String url : urls[i]) {
+					System.out.println("Node " + i + " is being sent " + url);
 					output = output.concat(url + "\r\n");
 				}
 				out.write(("Content-Length: " + output.length() +
@@ -613,7 +616,7 @@ public class Crawler {
 				socket.close(); 
 			} catch(Exception e) {
 				System.out.println(e);
-			} */
+			} 
 		}	
 	}
 	
@@ -714,10 +717,10 @@ public class Crawler {
 	private static void requestToStartCrawler() {
 		//Create thread pools used in the crawler
 
-		Thread[] headPool = new Thread[100];
-		Thread[] getPool = new Thread[100];
-		Thread[] fileWritingPool = new Thread[100];
-		for (int i = 0; i < 100; i++) {
+		Thread[] headPool = new Thread[1];
+		Thread[] getPool = new Thread[1];
+		Thread[] fileWritingPool = new Thread[1];
+		for (int i = 0; i < 1; i++) {
 
 			headPool[i] = new Thread(new HeadThreadRunnable());
 			headPool[i].start();
@@ -777,8 +780,11 @@ public class Crawler {
 					 headQueue.enqueue(new Site(url,
 						DBWrapper.updateNextRequestTime(new URL(url).getHost())));
 				 } */
-				 DBWrapper.putToHeadQueue(new Site(url,
-						DBWrapper.updateNextRequestTime(new URL(url).getHost())));
+				 long delay = DBWrapper.updateNextRequestTime(new URL(url).getHost());
+				 System.out.println("Request worker is adding " + url);
+				 System.out.println("with a delay of " + (delay - System.currentTimeMillis())/1000);
+				 DBWrapper.putToHeadQueue(new Site(url,delay));
+					
 			} catch (MalformedURLException e) {
 				e.printStackTrace();
 			}
