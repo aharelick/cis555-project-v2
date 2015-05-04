@@ -87,7 +87,7 @@ public class DBWrapper {
 	 * over the index until it gets and deletes as many entities as requested.
 	 * @param count
 	 */
-	public static LinkedList<Site> batchPullFromHead(int count) {
+	public synchronized static LinkedList<Site> batchPullFromHead(int count) {
 		EntityCursor<Site> cursor = headQueue.entities();
 		LinkedList<Site> sites = new LinkedList<Site>();
 		try {
@@ -119,7 +119,7 @@ public class DBWrapper {
 	 * over the index until it gets and deletes as many entities as requested.
 	 * @param count
 	 */
-	public static LinkedList<Site> batchPullFromGet(int count) {
+	public synchronized static LinkedList<Site> batchPullFromGet(int count) {
 		EntityCursor<Site> cursor = getQueue.entities();
 		LinkedList<Site> sites = new LinkedList<Site>();
 		try {
@@ -225,42 +225,24 @@ public class DBWrapper {
 	}
 	
 	public synchronized static Site popHeadQueue() {
-		/*Site site;
-		synchronized (headNextCrawlTime) {
-			EntityCursor<Site> cursor = headNextCrawlTime.entities();
-			site = cursor.first(LockMode.RMW);
-			if (site != null) {
-				cursor.delete();
-			}
-			cursor.close();
+		Site site;
+		EntityCursor<Site> cursor = headNextCrawlTime.entities();
+		site = cursor.first(LockMode.RMW);
+		if (site != null) {
+			cursor.delete();
 		}
-		return site; */
-		SortedMap<Long, Site> map = headNextCrawlTime.sortedMap();
-		if (map.isEmpty()) {
-			return null;
-		}
-		Site site = map.get(map.firstKey());
-		headQueue.delete(site.getSite());
-		return site;
+		cursor.close();
+		return site; 
 	}
 	
 	public synchronized static Site popGetQueue() {
-		/*Site site;
-		synchronized (getNextCrawlTime) {
-			EntityCursor<Site> cursor = getNextCrawlTime.entities();
-			site = cursor.first(LockMode.RMW);
-			if (site != null) {
-				cursor.delete();
-			}
-			cursor.close();
+		Site site;
+		EntityCursor<Site> cursor = getNextCrawlTime.entities();
+		site = cursor.first(LockMode.RMW);
+		if (site != null) {
+			cursor.delete();
 		}
-		return site; */
-		SortedMap<Long, Site> map = getNextCrawlTime.sortedMap();
-		if (map.isEmpty()) {
-			return null;
-		}
-		Site site = map.get(map.firstKey());
-		getQueue.delete(site.getSite());
+		cursor.close();
 		return site;
 	}
 
