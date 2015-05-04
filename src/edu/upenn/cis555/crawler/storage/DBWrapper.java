@@ -246,20 +246,32 @@ public class DBWrapper {
 		return site;
 	}
 	
-	public synchronized static Site peekHeadQueue() {
+	public synchronized static Site conditionalPopHeadQueue() {
 		Site site;
 		EntityCursor<Site> cursor = headNextCrawlTime.entities();
 		site = cursor.first(LockMode.RMW);
-		cursor.close();
-		return site;
+		if (site != null && site.getNextRequestTime() - System.currentTimeMillis() < 2000) {
+			cursor.delete();
+			cursor.close();
+			return site;
+		} else {
+			cursor.close();
+			return null;
+		}
 	}
 	
-	public synchronized static Site peekGetQueue() {
+	public synchronized static Site conditionalPopGetQueue() {
 		Site site;
 		EntityCursor<Site> cursor = getNextCrawlTime.entities();
 		site = cursor.first(LockMode.RMW);
-		cursor.close();
-		return site;
+		if (site != null && site.getNextRequestTime() - System.currentTimeMillis() < 2000) {
+			cursor.delete();
+			cursor.close();
+			return site;
+		} else {
+			cursor.close();
+			return null;
+		}
 	}
 
 	public static void sync() {
