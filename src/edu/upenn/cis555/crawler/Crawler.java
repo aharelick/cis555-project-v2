@@ -331,11 +331,7 @@ public class Crawler {
 			DBWrapper.putHostInfo(robots);
 			//put the URL back on the head queue with updated next crawl time
 			url.setNextRequestTime(nextCrawlTime);
-			/*if (headQueue.queueSize > 5000) {
-				DBWrapper.putToHeadQueue(url);
-			} else { 
-				headQueue.enqueue(url);
-			} */
+	
 			DBWrapper.putToHeadQueue(url);
 			
 			
@@ -405,11 +401,7 @@ public class Crawler {
 				//update crawl time and put to GET queue
 				long nextCrawlTime = robots.getNextRequestTime();
 				url.setNextRequestTime(nextCrawlTime);
-				/*if (getQueue.queueSize > 5000) {
-					DBWrapper.putToGetQueue(url);
-				} else {
-					getQueue.enqueue(url);
-				} */
+		
 				System.out.println("HEAD putting on GET: " + url.getSite());
 				DBWrapper.putToGetQueue(url);
 			}
@@ -431,10 +423,16 @@ public class Crawler {
 			protocol = siteURL.getProtocol();
 			if (protocol.equals("https")) {
 				HttpsURLConnection res = https(new URL(url.getSite()), "GET");
+				if (res == null) {
+					return;
+				}
 				System.out.println("Downloading: " + url.getSite());
 				body = inputStreamToString(res);
 			} else if (protocol.equals("http")) {
 				HttpURLConnection res = http(new URL(url.getSite()), "GET");
+				if (res == null) {
+					return;
+				}
 				System.out.println("Downloading: " + url.getSite());
 				body = inputStreamToString(res);
 			}
@@ -711,8 +709,8 @@ public class Crawler {
 		//initialize the timer task for writing to S3	
 		TimerTask s3WritingTask = new S3WritingTask();
 		Timer s3Handler = new Timer(true);
-		//wait 1 minutes to start, try every 1 minutes
-		s3Handler.scheduleAtFixedRate(s3WritingTask, 60000, 60000);
+		//wait 15 seconds to start, try every 15 seconds
+		s3Handler.scheduleAtFixedRate(s3WritingTask, 15000, 15000);
 	}
 	
 	/**
