@@ -13,7 +13,7 @@ public class FinishMapper extends Mapper<LongWritable, Text, DoubleWritable, Tex
 		String line = val.toString();
 		String[] splitTab = line.split("\t");
 		String[] splitSpace = splitTab[1].split(" ");
-		String person = splitTab[0];	// current person
+		String person = splitTab[0];	// current link
 		String rank = splitSpace[2];	// current rank
 
 		// writing as a DoubleWritable will sort the values before reduce

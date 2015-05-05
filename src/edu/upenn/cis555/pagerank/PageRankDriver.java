@@ -30,11 +30,11 @@ public class PageRankDriver {
 		System.out.println("Author: Alex Harelick (harelick)");
 		testInput(args[0], args); // test for input errors
 		switch (args[0]) {
-		case ("init") : exit(init(args)); break; // run init
-		case ("iter") : exit(iter(args)); break; // run iter
-		case ("diff") : diff(args,s); exit(diff2(args, s)); break;  // run both diffs
-		case ("finish") : exit(finish(args)); break;	// run finish
-		case ("composite") : exit(composite(args, s)); break;	// run composite (everything)
+			case ("init") : exit(init(args)); break; // run init
+			case ("iter") : exit(iter(args)); break; // run iter
+			case ("diff") : diff(args,s); exit(diff2(args, s)); break;  // run both diffs
+			case ("finish") : exit(finish(args)); break;	// run finish
+			case ("composite") : exit(composite(args, s)); break;	// run composite (everything)
 		}
 	}
 
@@ -104,14 +104,18 @@ public class PageRankDriver {
 	}
 	
 	public static boolean init(String [] arr) throws Exception {
-		deleteDirectory(arr[2]);
+		//deleteDirectory(arr[2]);
 		// create job
+		System.out.println("starting init");
 		Job job = new Job();
 		job.setJarByClass(PageRankDriver.class);
 		// set input/output
+		System.out.println("input path: " + arr[1]);
+		System.out.println("output path: " + arr[2]);
 		FileInputFormat.addInputPath(job, new Path(arr[1]));
 		FileOutputFormat.setOutputPath(job, new Path(arr[2]));
 		// set the number of reducers
+		System.out.println("using " + arr[3] + " reducers");
 		job.setNumReduceTasks(Integer.parseInt(arr[3]));
 		// set the mapper classes
 		job.setMapperClass(InitMapper.class);
@@ -122,21 +126,30 @@ public class PageRankDriver {
 		// set the output classes for map
 		job.setMapOutputKeyClass(Text.class);
 		job.setMapOutputValueClass(Text.class);
-		
-		if (job.waitForCompletion(true))
+		System.out.println("waiting for completion");
+		if (job.waitForCompletion(true)) {
+			System.out.println("init completed successfully");
 			return true;
-		return false;
+		} else {
+			System.out.println("init failed");
+			return false;
+		}
 	}
 
 	public static boolean iter(String [] arr) throws Exception {
-		deleteDirectory(arr[2]);
+		System.out.println("starting iter");
+		//System.out.println("deleting directory: " + arr[2]);
+		//deleteDirectory(arr[2]);
 		// create job
 		Job job = new Job();
 		job.setJarByClass(PageRankDriver.class);
 		// set input/output
+		System.out.println("input path: " + arr[1]);
+		System.out.println("output path: " + arr[2]);
 		FileInputFormat.addInputPath(job, new Path(arr[1]));
 		FileOutputFormat.setOutputPath(job, new Path(arr[2]));
 		// set the number of reducers
+		System.out.println("using " + arr[3] + " reducers");
 		job.setNumReduceTasks(Integer.parseInt(arr[3]));
 		// set the mapper classes
 		job.setMapperClass(IterMapper.class);
@@ -147,11 +160,15 @@ public class PageRankDriver {
 		// set the output classes for map
 		job.setMapOutputKeyClass(Text.class);
 		job.setMapOutputValueClass(Text.class);
-
-		if (job.waitForCompletion(true))
+		System.out.println("waiting for completion");
+		if (job.waitForCompletion(true)) {
+			System.out.println("iter completed successfully");
 			return true;
-		return false;
+		} else {
+			System.out.println("iter failed");
+			return false;
 		}
+	}
 	
 	public static void diff(String [] arr, String s) throws Exception {
 		deleteDirectory(arr[3]);
@@ -219,21 +236,19 @@ public class PageRankDriver {
 	}
 	
 	public static boolean finish(String[] arr) throws Exception {
-		deleteDirectory(arr[2]);
+		//deleteDirectory(arr[2]);
 		// create job
+		System.out.println("starting finish");
 		Job job = new Job();
 		job.setJarByClass(PageRankDriver.class);
 		// set input/output
+		System.out.println("input path: " + arr[1]);
+		System.out.println("output path: " + arr[2]);
 		FileInputFormat.addInputPath(job, new Path(arr[1]));
 		FileOutputFormat.setOutputPath(job, new Path(arr[2]));
-		if (!arr[0].equals("composite")) {
-			// set the number of reducers
-			job.setNumReduceTasks(Integer.parseInt(arr[3]));
-		}
-		// set number of reducers
-		else {
-			job.setNumReduceTasks(1);
-		}
+		// set the number of reducers
+		System.out.println("using " + arr[3] + " reducers");
+		job.setNumReduceTasks(Integer.parseInt(arr[3]));
 		// set the mapper classes
 		job.setMapperClass(FinishMapper.class);
 		job.setReducerClass(FinishReducer.class);
@@ -243,47 +258,54 @@ public class PageRankDriver {
 		// set the output classes for map
 		job.setMapOutputKeyClass(DoubleWritable.class);
 		job.setMapOutputValueClass(Text.class);
-		if (job.waitForCompletion(true))
+		System.out.println("waiting for completion");
+		if (job.waitForCompletion(true)) {
+			System.out.println("finish completed successfully");
 			return true;
-		return false;
+		} else {
+			System.out.println("finish failed");
+			return false;
+		}
 	}
 	
 
 	public static boolean composite(String [] arr, String s) throws Exception {
-		deleteDirectory(arr[2]);
+		//deleteDirectory(arr[2]);
 		// different arrays I pass to the functions based on their inputs
 		String [] arrInit = {arr[0], arr[1], arr[3], arr[6]};
 		String [] arrIter1 = {arr[0], arr[3], arr[4], arr[6]};
 		String [] arrIter2 = {arr[0], arr[4], arr[3], arr[6]};
-		String [] arrDiff = {arr[0], arr[3], arr[4], arr[5], arr[6]};
+		//String [] arrDiff = {arr[0], arr[3], arr[4], arr[5], arr[6]};
 		String [] arrFinish = {arr[0], arr[3], arr[2], arr[6]};
 		
 		// run init
 		if (!(init(arrInit)))
 			System.exit(1);
-		// run 4 iters and check diff until it's below the limit
-		while (true) {
+		// run 1 iteration
+		for (int i = 0; i < 1; i++) {
 			if (!iter(arrIter1)) 	// run iter
 				System.exit(1);	
-			if (!iter(arrIter2)) 	// run iter
-				System.exit(1);
-			if (!iter(arrIter1)) 	// run iter
-				System.exit(1);		
-			if (!iter(arrIter2)) 	// run iter
-				System.exit(1);
-			diff(arrDiff, s);	// run diff
-			if (!diff2(arrDiff, s)) {// run diff2
-				System.exit(1);
-			}
-			if (readDiffResult(arr[5]) <= 30) //break if it's below the diff
-				break;	
+//			if (!iter(arrIter2)) 	// run iter
+//				System.exit(1);
+//			if (!iter(arrIter1)) 	// run iter
+//				System.exit(1);		
+//			if (!iter(arrIter2)) 	// run iter
+//				System.exit(1);
+//			diff(arrDiff, s);	// run diff
+//			if (!diff2(arrDiff, s)) {// run diff2
+//				System.exit(1);
+//			}
+//			if (readDiffResult(arr[5]) <= 30) //break if it's below the diff
+//				break;	
 		}
 		
 		
-		if (finish(arrFinish))  // run finish
+		if (finish(arrFinish)) {
 			return true;
-		else return false;		
+		} else {
+			return false;		
 		}
+	}
 
 	// Given an output folder, returns the first double from the first
 	// part-r-00000 file
