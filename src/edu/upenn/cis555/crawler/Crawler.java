@@ -84,8 +84,8 @@ public class Crawler {
 		System.out.println("Listening on port " + portNumber);
 		
 		//Create pool of workers that handle requests
-		Thread[] reqWorkerPool = new Thread[250];
-		for (int i = 0; i < 250; i++) {	
+		Thread[] reqWorkerPool = new Thread[0];
+		for (int i = 0; i < 0; i++) {	
 			reqWorkerPool[i] = new Thread(new RequestWorkerRunnable());
 			reqWorkerPool[i].start();	
 		}
@@ -317,6 +317,9 @@ public class Crawler {
 			String body;
 			if (responseCode == 200) {
 				body = inputStreamToString(connect);
+				if (body == null) {
+					return;
+				}
 				robots = parseRobots(body);
 			} else {
 				//TODO handle 301, 302, 304, 307
@@ -427,6 +430,9 @@ public class Crawler {
 				}
 				System.out.println("Downloading: " + url.getSite());
 				body = inputStreamToString(res);
+				if (body == null) {
+					return;
+				}
 			} else if (protocol.equals("http")) {
 				HttpURLConnection res = http(new URL(url.getSite()), "GET");
 				if (res == null) {
@@ -434,6 +440,9 @@ public class Crawler {
 				}
 				System.out.println("Downloading: " + url.getSite());
 				body = inputStreamToString(res);
+				if (body == null) {
+					return;
+				}
 			}
 		} catch (MalformedURLException e) {
 			return;
@@ -525,6 +534,7 @@ public class Crawler {
 			br = new BufferedReader(new InputStreamReader(connect.getInputStream()));
 		} catch (IOException e) {
 			e.printStackTrace();
+			return null;
 		}
 		String line;
 		try {
@@ -533,6 +543,7 @@ public class Crawler {
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
+			return null;
 		}
 		body = body.trim();
 		return body;
@@ -570,8 +581,15 @@ public class Crawler {
 	 * and then send a POST request with a body of the URLs.
 	 */
 	private static void sendURLsToNodes(LinkedList<String>[] urls) {
+		HashSet<String> duplicateURLs = new HashSet<String>();
 		for (int i = 0; i < IPaddresses.size(); i++) {
-			try {
+			for (String url : urls[i]) {
+				if (!duplicateURLs.contains(url)) {
+					requestToAddToHead(url);
+					duplicateURLs.add(url);
+				}
+			}
+			/*try {
 				Socket socket = 
 						new Socket(IPaddresses.get(i).getHost(), portNumber);
 				OutputStream out = socket.getOutputStream();
@@ -590,7 +608,7 @@ public class Crawler {
 				socket.close(); 
 			} catch(Exception e) {
 				System.out.println(e);
-			} 
+			} */
 		}	
 	}
 	
@@ -693,10 +711,10 @@ public class Crawler {
 	private static void requestToStartCrawler() {
 		//Create thread pools used in the crawler
 
-		Thread[] headPool = new Thread[200];
-		Thread[] getPool = new Thread[200];
-		Thread[] fileWritingPool = new Thread[200];
-		for (int i = 0; i < 200; i++) {
+		Thread[] headPool = new Thread[300];
+		Thread[] getPool = new Thread[300];
+		Thread[] fileWritingPool = new Thread[300];
+		for (int i = 0; i < 300; i++) {
 
 			headPool[i] = new Thread(new HeadThreadRunnable());
 			headPool[i].start();
@@ -708,8 +726,8 @@ public class Crawler {
 		//initialize the timer task for writing to S3	
 		TimerTask s3WritingTask = new S3WritingTask();
 		Timer s3Handler = new Timer(true);
-		//wait 15 seconds to start, try every 15 seconds
-		s3Handler.scheduleAtFixedRate(s3WritingTask, 15000, 15000);
+		//wait 10 seconds to start, try every 10 seconds
+		s3Handler.scheduleAtFixedRate(s3WritingTask, 10000, 10000);
 	}
 	
 	/**
