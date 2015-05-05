@@ -27,6 +27,7 @@ public class S3Upload {
 	public static void main(String[] args) {
 		if (args.length != 2) {
 			System.out.println("Usage: <file_directory> <bucket_name>");
+			System.exit(0);
 		}
 		files = new HashSet<File>();
 		// directory containing the files to upload
