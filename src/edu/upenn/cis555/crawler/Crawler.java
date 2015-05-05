@@ -207,12 +207,11 @@ public class Crawler {
 	}
 	
 	/**
-	 * Timer task that switches the current file being wrote to and sends the 
-	 * previous files to S3 at the given period defined in the main method.
+	 * Timer task that switches the current file being wrote to.
 	 */
 	static class S3WritingTask extends TimerTask {		
 		public void run() {
-			S3FileWriter.switchFileAndWriteToS3(S3logDirectory);		
+			S3FileWriter.switchFile(S3logDirectory);		
 		}
 	}
 	
