@@ -69,7 +69,7 @@ public class Crawler {
 		}
 		//add the list of URLs to the beginning of the HeadQueue
 		for (String url : args[0].split(",")) {
-			DBWrapper.putToHeadQueue(new Site(url, System.currentTimeMillis()));
+			requestToAddToHead(url);
 		}
 			
 		//set the directory for logging and initialize the FileWriter to S3
