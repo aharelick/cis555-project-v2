@@ -69,11 +69,8 @@ public class S3FileWriter {
 	
 	
 	
-	public static void switchFileAndWriteToS3(File directory) {
-		
-		File urlFileToWrite;
-		File docFileToWrite;
-		
+	public static void switchFile(File directory) {
+	
 		synchronized(docWriter) {
 			try {
 				docWriter.close();
@@ -81,7 +78,6 @@ public class S3FileWriter {
 				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			}
-			docFileToWrite = new File(docFile.getAbsolutePath());
 			setDocFileWriter(directory);
 		} 
 		
@@ -92,37 +88,8 @@ public class S3FileWriter {
 				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			}
-			urlFileToWrite = new File(urlFile.getAbsolutePath());
 			setUrlFileWriter(directory);
 		}
 
-		//Grab the credentials for writing to S3
-		AWSCredentials credentials = null;
-		try {
-			credentials = new ProfileCredentialsProvider("default").getCredentials();
-		} catch (Exception e) {
-			throw new AmazonClientException(
-					"Cannot load the credentials from the credential profiles file. " +
-							"Please make sure that your credentials file is at the correct " +
-							"location (/home/cis455/.aws/credentials), and is in valid format.",
-							e);
-		}
-
-		AmazonS3 s3 = new AmazonS3Client(credentials);
-		Region usStandard = Region.getRegion(Regions.US_EAST_1);
-		s3.setRegion(usStandard);
-
-		String bucketName1 = "crawl.start.5.4";
-		String key1 = docFileToWrite.getName();
-		String bucketName2 = "crawl.start.5.4";
-		String key2 = urlFileToWrite.getName();
-
-		System.out.println("===========================================");
-		System.out.println("Getting Started with Amazon S3");
-		System.out.println("===========================================\n");
-
-		System.out.println("Uploading a new object to S3 from a file\n");
-		s3.putObject(new PutObjectRequest(bucketName1, key1, docFileToWrite));
-		s3.putObject(new PutObjectRequest(bucketName2, key2, urlFileToWrite));
 	}
 }
