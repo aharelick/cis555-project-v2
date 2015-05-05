@@ -26,6 +26,7 @@ import javax.net.ssl.HttpsURLConnection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.springframework.util.StringUtils;
 
 import edu.upenn.cis555.crawler.storage.DBWrapper;
 import edu.upenn.cis555.crawler.storage.HostInfo;
@@ -652,7 +653,11 @@ public class Crawler {
 					info.addAllowedLink(agent, link);
 				}
 				if (delay != null) {
-					info.addCrawlDelay(agent, Double.parseDouble(delay));
+					double delayDouble = Double.parseDouble(delay);
+					if (delayDouble < 1) {
+						delayDouble = 1;
+					}
+					info.addCrawlDelay(agent, delayDouble);
 				}
 				for (String link : sitemap) {
 					info.addSitemapLink(link);
@@ -755,21 +760,24 @@ public class Crawler {
 	 * adds it to the headQueue if it has not yet been seen.
 	 */
 	private static void requestToAddToHead(String url) {
+		StringUtils.countOccurrencesOf(url, "..");
+		if (StringUtils.countOccurrencesOf(url, "..") >= 3) {
+			return;
+		}
 		//need to make sure never in the crawled database
-		 if (DBWrapper.getCrawledSite(url) == null) {
-			 DBWrapper.putCrawledSite(new SiteBare(url));
+		if (DBWrapper.getCrawledSite(url) == null) {
+			DBWrapper.putCrawledSite(new SiteBare(url));
 			//add to the head with the appropriate crawl delay
-			 try {
-				 long delay = DBWrapper.updateNextRequestTime(new URL(url).getHost());
-				 System.out.println("Request worker is adding " + url);
-				 System.out.println("with a delay of " + (delay - System.currentTimeMillis())/1000);
-				 DBWrapper.putToHeadQueue(new Site(url,delay));
-					
+			try {
+				long delay = DBWrapper.updateNextRequestTime(new URL(url).getHost());
+				System.out.println("Request worker is adding " + url);
+				System.out.println("with a delay of " + (delay - System.currentTimeMillis())/1000);
+				DBWrapper.putToHeadQueue(new Site(url,delay));		
 			} catch (MalformedURLException e) {
 				e.printStackTrace();
 			}
-		 }	else {
-			 System.out.println("This site has previously been crawled: " + url);
-		 }
+		}	else {
+			System.out.println("This site has previously been crawled: " + url);
+		}
 	}	
 }
