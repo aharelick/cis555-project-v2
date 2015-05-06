@@ -23,10 +23,12 @@ public class IterReducer extends Reducer<Text, Text, Text, Text> {
 			if (source.equals(link)) {
 				// don't use your data in your own rank calculation
 				size = splitSpace[1];
+				System.out.println(value.toString());
 				toThem = splitSpace[3];
 			} else {
 			// calculate rank
 			// index 2: rank, index 1: size
+			System.err.println(value.toString());
 			newRank = newRank + ((Double.parseDouble(splitSpace[2]) / 
 					Double.parseDouble(splitSpace[1])));
 			}	

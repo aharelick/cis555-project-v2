@@ -23,6 +23,7 @@ public class IterMapper extends Mapper<LongWritable, Text, Text, Text> {
 			}
 		}
 		// send my link and my values to the reducer
+		System.out.println(source + " " + size + " " + rank + " " + toThem);
 		context.write(new Text(source), new Text(source + " " + size + " " + rank + " " + toThem));
 	}
 }

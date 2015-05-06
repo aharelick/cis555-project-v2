@@ -33,10 +33,6 @@ public class InitMapper extends Mapper<LongWritable, Text, Text, Text> {
 			// shouldn't count a self link
 			if (!(source.equals(target))) {
 				context.write(new Text(source), new Text(target));
-			}
-			// shouldn't count a self link
-			if (!(source.equals(target))) {
-				context.write(new Text(target), new Text("X " + source));
 			}	
 		}
 	} 

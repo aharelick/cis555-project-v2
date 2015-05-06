@@ -14,17 +14,10 @@ public class InitReducer extends Reducer<Text, Text, Text, Text> {
 		double rank = 1.0;	  // everything starts with rank 1
 		String name = key.toString();	// name associated with info
 		ArrayList<String> toThem = new ArrayList<String>(); // links I am pointing to
-		ArrayList<String> toMe = new ArrayList<String>();  // links pointing to me
 
 		for (Text t : values) {
 			// if they point to me
-			if (t.toString().startsWith("X")) {
-				toMe.add(t.toString().substring(1));
-			}
-			else {
-				// if I point to them
-				toThem.add(t.toString());
-			}
+			toThem.add(t.toString());
 		}
 		
 		String outgoingLinks = "";
@@ -33,7 +26,7 @@ public class InitReducer extends Reducer<Text, Text, Text, Text> {
 			outgoingLinks = "-";
 		} else {
 			// make the friends a comma separated string
-			StringUtils.join(",", toThem);		
+			outgoingLinks = StringUtils.join(",", toThem);		
 		}
 		// String with url, the amount of outgoingLinks, rank, and outgoingLinks
 		String output = name + " " + toThem.size() + " " + rank + " " + outgoingLinks;	
