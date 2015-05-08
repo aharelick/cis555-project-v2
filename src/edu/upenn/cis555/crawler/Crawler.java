@@ -85,12 +85,12 @@ public class Crawler {
 		System.out.println("Listening on port " + portNumber);
 		
 		//Create pool of workers that handle requests
-		Thread[] reqWorkerPool = new Thread[0];
-		for (int i = 0; i < 0; i++) {	
+		Thread[] reqWorkerPool = new Thread[5];
+		for (int i = 0; i < 5; i++) {	
 			reqWorkerPool[i] = new Thread(new RequestWorkerRunnable());
 			reqWorkerPool[i].start();	
 		}
-		requestToStartCrawler();
+		//requestToStartCrawler();
 		//add a shutdown hook to properly close DB
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			public void run() {
@@ -584,13 +584,13 @@ public class Crawler {
 	private static void sendURLsToNodes(LinkedList<String>[] urls) {
 		HashSet<String> duplicateURLs = new HashSet<String>();
 		for (int i = 0; i < IPaddresses.size(); i++) {
-			for (String url : urls[i]) {
+			/*for (String url : urls[i]) {
 				if (!duplicateURLs.contains(url)) {
 					requestToAddToHead(url);
 					duplicateURLs.add(url);
 				}
-			}
-			/*try {
+			}*/
+			try {
 				Socket socket = 
 						new Socket(IPaddresses.get(i).getHost(), portNumber);
 				OutputStream out = socket.getOutputStream();
@@ -598,7 +598,7 @@ public class Crawler {
 				out.write("User-Agent: cis455crawler\r\n".getBytes());
 				String output = "";
 				for (String url : urls[i]) {
-			//		System.out.println("Node " + i + " is being sent " + url);
+					System.out.println("Node " + i + " is being sent " + url);
 					output = output.concat(url + "\r\n");
 				}
 				out.write(("Content-Length: " + output.length() +
@@ -609,7 +609,7 @@ public class Crawler {
 				socket.close(); 
 			} catch(Exception e) {
 				System.out.println(e);
-			} */
+			} 
 		}	
 	}
 	
@@ -685,6 +685,7 @@ public class Crawler {
 			String line = in.readLine();
 			String path = line.split(" ")[1];
 			if (path.equals("/start")) {
+				System.out.println("Received request to start the crawler.");
 				requestToStartCrawler();
 			} else if (path.equals("/stop")) {
 				requestToShutdownCrawler();
@@ -716,10 +717,10 @@ public class Crawler {
 	private static void requestToStartCrawler() {
 		//Create thread pools used in the crawler
 
-		Thread[] headPool = new Thread[300];
-		Thread[] getPool = new Thread[300];
-		Thread[] fileWritingPool = new Thread[300];
-		for (int i = 0; i < 300; i++) {
+		Thread[] headPool = new Thread[30];
+		Thread[] getPool = new Thread[30];
+		Thread[] fileWritingPool = new Thread[30];
+		for (int i = 0; i < 30; i++) {
 
 			headPool[i] = new Thread(new HeadThreadRunnable());
 			headPool[i].start();
