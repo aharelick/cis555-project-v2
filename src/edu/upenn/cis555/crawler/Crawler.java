@@ -61,7 +61,9 @@ public class Crawler {
 		
 		//populate the map of IP addresses
 		String[] ips = args[4].split(",");
+		System.out.println(args[4]);
 		for (int i = 0; i < ips.length; i++) {
+			System.out.println("in the loop");
 			try {
 				System.out.println("Populating IPtable with " + i + " " + new URL(ips[i]));
 				IPaddresses.put(i, new URL(ips[i]));
