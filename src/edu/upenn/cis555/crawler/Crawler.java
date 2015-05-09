@@ -63,6 +63,7 @@ public class Crawler {
 		String[] ips = args[4].split(",");
 		for (int i = 0; i < ips.length; i++) {
 			try {
+				System.out.println("Populating IPtable with " + i + " " + new URL(ips[i]));
 				IPaddresses.put(i, new URL(ips[i]));
 			} catch (MalformedURLException e) {
 				e.printStackTrace();
@@ -85,8 +86,8 @@ public class Crawler {
 		System.out.println("Listening on port " + portNumber);
 		
 		//Create pool of workers that handle requests
-		Thread[] reqWorkerPool = new Thread[5];
-		for (int i = 0; i < 5; i++) {	
+		Thread[] reqWorkerPool = new Thread[30];
+		for (int i = 0; i < 30; i++) {	
 			reqWorkerPool[i] = new Thread(new RequestWorkerRunnable());
 			reqWorkerPool[i].start();	
 		}
@@ -254,6 +255,7 @@ public class Crawler {
         			break;
         		}
         		//helper below, calls start, stop, clear, or add to queue
+        		System.out.println("Parsing a request from: " + currentSocket.getInetAddress());
         		parseRequest(currentSocket);
         		try {
 					currentSocket.close();
@@ -608,7 +610,8 @@ public class Crawler {
 				out.close();
 				socket.close(); 
 			} catch(Exception e) {
-				System.out.println(e);
+				e.printStackTrace();
+				return;
 			} 
 		}	
 	}
@@ -732,8 +735,8 @@ public class Crawler {
 		//initialize the timer task for writing to S3	
 		TimerTask s3WritingTask = new S3WritingTask();
 		Timer s3Handler = new Timer(true);
-		//wait 10 seconds to start, try every 10 seconds
-		s3Handler.scheduleAtFixedRate(s3WritingTask, 10000, 10000);
+		//wait 30 seconds to start, try every 30 seconds
+		s3Handler.scheduleAtFixedRate(s3WritingTask, 30000, 30000);
 	}
 	
 	/**
