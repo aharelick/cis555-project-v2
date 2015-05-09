@@ -61,9 +61,7 @@ public class Crawler {
 		
 		//populate the map of IP addresses
 		String[] ips = args[4].split(",");
-		System.out.println(args[4]);
 		for (int i = 0; i < ips.length; i++) {
-			System.out.println("in the loop");
 			try {
 				System.out.println("Populating IPtable with " + i + " " + new URL(ips[i]));
 				IPaddresses.put(i, new URL(ips[i]));
@@ -88,8 +86,8 @@ public class Crawler {
 		System.out.println("Listening on port " + portNumber);
 		
 		//Create pool of workers that handle requests
-		Thread[] reqWorkerPool = new Thread[30];
-		for (int i = 0; i < 30; i++) {	
+		Thread[] reqWorkerPool = new Thread[300];
+		for (int i = 0; i < 300; i++) {	
 			reqWorkerPool[i] = new Thread(new RequestWorkerRunnable());
 			reqWorkerPool[i].start();	
 		}
@@ -722,10 +720,10 @@ public class Crawler {
 	private static void requestToStartCrawler() {
 		//Create thread pools used in the crawler
 
-		Thread[] headPool = new Thread[30];
-		Thread[] getPool = new Thread[30];
-		Thread[] fileWritingPool = new Thread[30];
-		for (int i = 0; i < 30; i++) {
+		Thread[] headPool = new Thread[300];
+		Thread[] getPool = new Thread[300];
+		Thread[] fileWritingPool = new Thread[300];
+		for (int i = 0; i < 300; i++) {
 
 			headPool[i] = new Thread(new HeadThreadRunnable());
 			headPool[i].start();
